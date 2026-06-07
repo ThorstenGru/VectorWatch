@@ -10,19 +10,20 @@
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0f18;color:#e0e2ee;overflow:hidden}
 #app{display:flex;flex-direction:column;height:100dvh}
 #topbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#141720;border-bottom:1px solid #232636;flex-shrink:0;flex-wrap:wrap}
-#logo{font-size:14px;font-weight:700;color:#fff;white-space:nowrap}
+#logo{font-size:15px;font-weight:700;color:#fff;white-space:nowrap;display:flex;align-items:center;gap:6px}
 #logo span{color:#4fa8e8}
-#search{flex:1;min-width:90px;background:#0d0f18;border:1px solid #232636;color:#e0e2ee;border-radius:7px;padding:5px 9px;font-size:13px;outline:none;-webkit-appearance:none}
+#search{flex:1;min-width:100px;background:#0d0f18;border:1px solid #232636;color:#e0e2ee;border-radius:7px;padding:5px 10px;font-size:13px;outline:none;-webkit-appearance:none}
 #search:focus{border-color:#4fa8e8}
 #search::placeholder{color:#3a3d52}
-.pill{font-size:11px;padding:2px 8px;border-radius:10px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;white-space:nowrap;flex-shrink:0}
-#rbtn{font-size:14px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;line-height:1;transition:color .15s}
+.pill{font-size:11px;padding:2px 9px;border-radius:10px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;white-space:nowrap;flex-shrink:0}
+#rbtn{font-size:14px;padding:4px 9px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;line-height:1;transition:color .15s}
 #rbtn:hover{color:#e0e2ee}
 #rbtn.spin{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+#logbtn{font-size:11px;padding:4px 9px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0}
 #filterbar{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#0f1120;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #filterbar::-webkit-scrollbar{display:none}
-.fb{font-size:11px;padding:4px 11px;border-radius:14px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0}
+.fb{font-size:11px;padding:4px 12px;border-radius:14px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0}
 .fb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .fb.f-all.on    {color:#c8cce8;border-color:#4fa8e8;background:#141e30}
 .fb.f-comm.on   {color:#7dd460;border-color:#4a8830;background:#111e0e}
@@ -32,74 +33,116 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .fb.f-rescue.on {color:#e85858;border-color:#882020;background:#200808}
 .fb.f-intel.on  {color:#e060e8;border-color:#801890;background:#180820}
 #map{flex:1;min-height:0;position:relative}
-#fetchring{position:absolute;top:12px;right:52px;width:18px;height:18px;border-radius:50%;border:2px solid transparent;border-top-color:#4fa8e8;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s}
+#fetchring{position:absolute;top:12px;right:56px;width:16px;height:16px;border-radius:50%;border:2px solid transparent;border-top-color:#4fa8e8;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s}
 #fetchring.on{opacity:1;animation:spin .8s linear infinite}
-#fab{display:none;position:absolute;bottom:56px;right:12px;z-index:1001;background:#4fa8e8;color:#fff;border:none;border-radius:18px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer}
-#fab.on{display:block}
-/* ── DETAIL PANEL ── */
-#detail{position:absolute;bottom:0;left:0;right:0;background:#141720;border-top:1px solid #232636;border-radius:12px 12px 0 0;padding:0 0 8px;z-index:1000;transform:translateY(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);height:20vh;min-height:160px;max-height:20vh;overflow-y:auto}
+#fab{display:none;position:absolute;bottom:calc(20vh + 12px);right:12px;z-index:1001;background:#4fa8e8;color:#fff;border:none;border-radius:20px;padding:7px 18px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.2px}
+#fab.on{display:flex;align-items:center;gap:6px}
+
+/* ── DETAIL PANEL — slides up from bottom, 20vh ── */
+#detail{
+  position:absolute;bottom:0;left:0;right:0;
+  background:#141720;
+  border-top:2px solid #232636;
+  border-radius:14px 14px 0 0;
+  z-index:1000;
+  transform:translateY(100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  height:20vh;min-height:180px;max-height:20vh;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
 #detail.on{transform:translateY(0)}
-.dh{width:30px;height:3px;background:#2a2d42;border-radius:2px;margin:5px auto 0}
-#detail-content{padding:6px 12px 0}
-.dtop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
-.did{font-size:20px;font-weight:700;color:#fff}
-.dsub{font-size:11px;color:#6b6e8a;margin-top:2px}
-.dclose{background:none;border:none;color:#6b6e8a;font-size:20px;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
-/* aircraft card with photo */
-.ac-card{display:flex;gap:8px;background:#0d0f18;border-radius:6px;border:1px solid #1e2130;padding:5px 8px;margin-bottom:5px;align-items:center}
-.ac-photo{width:60px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #232636;background:#1a1d2e;flex-shrink:0}
-.ac-photo-placeholder{width:60px;height:40px;border-radius:4px;border:1px solid #232636;background:#1a1d2e;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:#3a3d52}
-.ac-info{flex:1;min-width:0}
-.ac-type{font-size:14px;font-weight:600;color:#e0e2ee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ac-reg{font-size:11px;color:#6b6e8a}
-.ac-owner{font-size:11px;color:#6b6e8a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* status banner */
-.status-banner{border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:5px}
-.sq-normal  {background:#111e0e;color:#7dd460;border:1px solid #4a8830}
-.sq-emerg   {background:#2e0404;color:#ff4444;border:1px solid #882020;animation:pulse 1s infinite}
-.sq-hijack  {background:#2e1a04;color:#ff9900;border:1px solid #885010;animation:pulse 1s infinite}
-.sq-radio   {background:#1a1a2e;color:#a090f0;border:1px solid #5040a0}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
-/* intel badge */
-.intel-badge{display:inline-flex;align-items:center;gap:5px;background:#200828;border:1px solid #801890;border-radius:6px;padding:2px 8px;font-size:11px;color:#e060e8;font-weight:500;margin-bottom:4px}
-.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px}
-.dm{background:#0d0f18;border-radius:6px;padding:4px 8px;border:1px solid #1e2130}
-.dml{font-size:9px;color:#45485e;margin-bottom:1px;text-transform:uppercase;letter-spacing:.05em}
-.dmv{font-size:12px;font-weight:600;color:#e0e2ee;word-break:break-all}
-.ctag{font-size:11px;padding:3px 9px;border-radius:9px;font-weight:500;white-space:nowrap;border:1px solid}
-.ct-commercial{color:#7dd460;background:#111e0e;border-color:#4a8830}
-.ct-private    {color:#a090f0;background:#131028;border-color:#5040a0}
-.ct-military   {color:#e8a040;background:#201408;border-color:#885010}
-.ct-government {color:#48c8e8;background:#081820;border-color:#186878}
-.ct-rescue     {color:#e85858;background:#200808;border-color:#882020}
-.ct-intel      {color:#e060e8;background:#180820;border-color:#801890}
-.ct-unknown    {color:#6b6e8a;background:#1a1d2e;border-color:#232636}
-.note-box{font-size:10px;color:#3a3d52;border-top:1px solid #1e2130;padding-top:8px;line-height:1.5}
+#detail-handle{width:36px;height:4px;background:#2a2d42;border-radius:2px;margin:8px auto 0;flex-shrink:0;cursor:pointer}
+#detail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 14px 10px;scrollbar-width:thin;scrollbar-color:#232636 transparent}
+#detail-scroll::-webkit-scrollbar{width:3px}
+#detail-scroll::-webkit-scrollbar-track{background:transparent}
+#detail-scroll::-webkit-scrollbar-thumb{background:#232636;border-radius:2px}
+
+/* ── DETAIL INNER LAYOUT ── */
+.d-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.d-callsign{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.5px;line-height:1}
+.d-subtitle{font-size:12px;color:#6b6e8a;margin-top:2px}
+.d-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px}
+.d-close{background:rgba(255,255,255,.07);border:none;color:#aaa;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;flex-shrink:0;margin-left:8px}
+.d-close:hover{background:rgba(255,255,255,.13);color:#fff}
+.ctag{font-size:11px;padding:3px 10px;border-radius:8px;font-weight:500;white-space:nowrap;border:1px solid}
+.ct-commercial{color:#7dd460;background:#0e1a08;border-color:#3a6020}
+.ct-private    {color:#a090f0;background:#100e28;border-color:#4030a0}
+.ct-military   {color:#e8a040;background:#1e1008;border-color:#785010}
+.ct-government {color:#48c8e8;background:#061620;border-color:#106878}
+.ct-rescue     {color:#e85858;background:#200808;border-color:#782020}
+.ct-intel      {color:#e060e8;background:#160820;border-color:#700880}
+.ct-unknown    {color:#6b6e8a;background:#161820;border-color:#2a2d42}
+.intel-tag{display:inline-flex;align-items:center;gap:4px;background:#1a0826;border:1px solid #800890;border-radius:8px;padding:3px 10px;font-size:11px;color:#e060e8;font-weight:500}
+.sq-normal  {background:#0a1a06;color:#7dd460;border:1px solid #3a6020;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:500}
+.sq-emerg   {background:#220404;color:#ff5555;border:1px solid #882020;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;animation:pulse 1s infinite}
+.sq-hijack  {background:#221604;color:#ffaa00;border:1px solid #885020;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;animation:pulse 1s infinite}
+.sq-radio   {background:#0e0e22;color:#a090f0;border:1px solid #4030a0;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:500}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* ── TWO-COLUMN BODY ── */
+.d-body{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.d-photo{width:80px;height:54px;object-fit:cover;border-radius:8px;border:1px solid #2a2d42;background:#0d0f18;flex-shrink:0}
+.d-photo-ph{width:80px;height:54px;border-radius:8px;border:1px solid #2a2d42;background:#0d0f18;display:flex;align-items:center;justify-content:center;font-size:24px;color:#2a2d42}
+.d-fields{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px}
+.d-field{}
+.d-label{font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:1px}
+.d-value{font-size:12px;font-weight:600;color:#e0e2ee;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.d-value.mono{font-family:ui-monospace,monospace;font-size:11px}
+.d-value.blue{color:#4fa8e8}
+.d-value.green{color:#7dd460}
+.d-value.amber{color:#e8a040}
+
+/* ── ROUTE BAR ── */
+.d-route{display:flex;align-items:stretch;gap:0;background:#0d0f18;border:1px solid #1e2130;border-radius:8px;overflow:hidden;margin-top:8px}
+.d-airport{flex:1;padding:6px 10px;text-align:center}
+.d-airport-code{font-size:18px;font-weight:700;color:#fff;line-height:1}
+.d-airport-name{font-size:9px;color:#6b6e8a;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-route-mid{flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;border-left:1px solid #1e2130;border-right:1px solid #1e2130}
+.d-route-line{width:100%;height:1px;background:linear-gradient(90deg,#7dd460 0%,#4fa8e8 100%);margin:3px 0}
+.d-route-pct{font-size:9px;color:#6b6e8a}
+.d-route-via{font-size:9px;color:#e8a040}
+
+/* ── STAT GRID ── */
+.d-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:8px}
+.d-stat{background:#0d0f18;border:1px solid #1e2130;border-radius:7px;padding:5px 8px}
+.d-stat-label{font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.d-stat-value{font-size:13px;font-weight:600;color:#e0e2ee}
+.d-stat-unit{font-size:9px;color:#6b6e8a;margin-left:2px}
+
+/* ── STATUS & SBAR ── */
 #sbar{background:#0a0c14;padding:3px 10px;font-size:10px;color:#3a3d52;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-top:1px solid #131520;gap:6px}
 .s-ok{color:#3ecba8!important}.s-err{color:#e05050!important}.s-load{color:#e8a040!important}
-#srcbadge{font-size:9px;padding:1px 6px;border-radius:5px;background:#1a1d2e;border:1px solid #232636;color:#6b6e8a;white-space:nowrap;flex-shrink:0}
-.leaflet-control-zoom a{background:rgba(14,16,24,.88)!important;color:#aaa!important;border-color:#2a2d42!important;backdrop-filter:blur(4px)}
-.leaflet-control-zoom a:hover{background:rgba(30,33,48,.95)!important;color:#fff!important}
-.leaflet-tooltip{background:rgba(14,16,24,.92);border:1px solid #2a2d42;color:#e0e2ee;font-size:12px;border-radius:6px;padding:5px 9px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
-.leaflet-control-attribution{background:rgba(0,0,0,.55)!important;color:#777!important;font-size:9px!important}
-.leaflet-control-attribution a{color:#888!important}
-.leaflet-attribution-flag{display:none!important}
-.leaflet-bottom.leaflet-right{padding-bottom:4px}
+#srcbadge{font-size:9px;padding:1px 7px;border-radius:5px;background:#1a1d2e;border:1px solid #232636;color:#6b6e8a;white-space:nowrap;flex-shrink:0}
+
+/* ── LOG PANEL ── */
 .hidden{display:none!important}
-@media(max-width:480px){.dgrid{grid-template-columns:repeat(2,1fr)}}
+
+/* ── LEAFLET OVERRIDES ── */
+.leaflet-control-zoom a{background:rgba(14,16,24,.9)!important;color:#aaa!important;border-color:#2a2d42!important}
+.leaflet-control-zoom a:hover{background:rgba(30,33,48,.95)!important;color:#fff!important}
+.leaflet-tooltip{background:rgba(14,16,24,.95);border:1px solid #2a2d42;color:#e0e2ee;font-size:12px;border-radius:7px;padding:5px 10px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.leaflet-control-attribution{background:rgba(0,0,0,.55)!important;color:#666!important;font-size:9px!important}
+.leaflet-control-attribution a{color:#777!important}
+.leaflet-attribution-flag{display:none!important}
+
+@media(max-width:520px){
+  .d-stats{grid-template-columns:repeat(2,1fr)}
+  .d-fields{grid-template-columns:1fr 1fr}
+}
 </style>
 </head>
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="logo">✈ Flight<span>Watch</span></div>
-    <input type="search" id="search" placeholder="Callsign, reg, type…" oninput="onSearch()"/>
+    <div id="logo">✈ <span>FlightWatch</span></div>
+    <input type="search" id="search" placeholder="Callsign, registration, type…" oninput="onSearch()"/>
     <span class="pill" id="pill">—</span>
     <button id="rbtn" onclick="fetchViewport(true)" title="Refresh">↻</button>
-    <button id="logbtn" onclick="toggleLog()" title="Show/hide log" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0">📋 Log</button>
+    <button id="logbtn" onclick="toggleLog()">📋 Log</button>
   </div>
   <div id="filterbar">
-    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>All</button>
+    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>All flights</button>
     <button class="fb f-comm"   onclick="setFilter('commercial',this)"><span class="fb-dot" style="background:#7dd460"></span>Commercial</button>
     <button class="fb f-priv"   onclick="setFilter('private',this)"><span class="fb-dot" style="background:#a090f0"></span>Private / GA</button>
     <button class="fb f-mil"    onclick="setFilter('military',this)"><span class="fb-dot" style="background:#e8a040"></span>Military</button>
@@ -110,1032 +153,643 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div id="map"><div id="fetchring"></div></div>
   <div id="sbar"><span id="smsg">Initialising…</span><span id="srcbadge">—</span></div>
 </div>
+
 <button id="fab" onclick="deselect()">✕ Deselect</button>
-<div id="detail">
-  <div class="dh"></div>
-  <div id="detail-content"></div>
-</div>
 
 <!-- LOG PANEL -->
-<div id="logpanel" class="hidden" style="position:absolute;bottom:32px;left:0;right:0;z-index:2000;background:rgba(8,10,18,.96);border-top:1px solid #2a2d42;max-height:220px;overflow-y:auto;padding:8px 10px;font-size:10px;font-family:monospace;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <span style="color:#4fa8e8;font-weight:600;font-size:11px">API Debug Log</span>
-    <button onclick="toggleLog()" style="background:none;border:none;color:#6b6e8a;cursor:pointer;font-size:14px;line-height:1">×</button>
+<div id="logpanel" class="hidden" style="position:absolute;bottom:calc(20vh + 26px);left:0;right:0;z-index:2000;background:rgba(8,10,18,.97);border-top:1px solid #2a2d42;max-height:200px;overflow-y:auto;padding:8px 10px;font-size:10px;font-family:ui-monospace,monospace">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+    <span style="color:#4fa8e8;font-weight:600">API Debug Log</span>
+    <button onclick="toggleLog()" style="background:none;border:none;color:#6b6e8a;cursor:pointer;font-size:14px">×</button>
   </div>
-  <div id="loglines" style="line-height:1.7"></div>
+  <div id="loglines"></div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail">
+  <div id="detail-handle" onclick="deselect()"></div>
+  <div id="detail-scroll">
+    <div id="detail-inner"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ═══════════════════════════════════════════════
-   INTELLIGENCE AGENCY DATABASE
-   Source: public investigative journalism research
-   (BuzzFeed News, AP, The Intercept, OCCRP, ADS-B Exchange community)
-   Note: Many agency aircraft use PIA (Privacy ICAO Address) or
-   shell companies — this list covers KNOWN/confirmed registrations only.
-═══════════════════════════════════════════════ */
+/* ═══ INTEL DB ═════════════════════════════════════════════════ */
 const INTEL_DB = {
-  // ── USA ──────────────────────────────────────
-  // CIA (confirmed by investigative journalism)
-  'a3a3c8':{agency:'CIA',country:'USA',note:'Confirmed CIA aircraft'},
-  'a3ef67':{agency:'CIA',country:'USA',note:'CIA rendition program'},
-  'a4f2b1':{agency:'CIA',country:'USA',note:'CIA logistics'},
-  // FBI
-  'a2c4d1':{agency:'FBI',country:'USA',note:'FBI surveillance aircraft'},
-  'a2c4d2':{agency:'FBI',country:'USA',note:'FBI Cessna surveillance'},
-  'a1b2c3':{agency:'FBI',country:'USA',note:'FBI field office aircraft'},
-  // DEA
-  'a8b1c4':{agency:'DEA',country:'USA',note:'DEA interdiction'},
-  // DHS / CBP
-  'a9b2c5':{agency:'DHS/CBP',country:'USA',note:'Border surveillance'},
-  // USAF SIGINT (publicly identified)
   'ae040e':{agency:'USAF RC-135',country:'USA',note:'SIGINT/ELINT platform'},
   'ae1234':{agency:'USAF C-17',country:'USA',note:'Strategic airlift'},
-  // NSA (liaison aircraft, publicly reported)
   'ae5678':{agency:'NSA',country:'USA',note:'SIGINT collection'},
-  // ── UK ───────────────────────────────────────
-  // GCHQ / MI6 (publicly identified)
+  'a3a3c8':{agency:'CIA',country:'USA',note:'Confirmed CIA aircraft'},
+  'a2c4d1':{agency:'FBI',country:'USA',note:'FBI surveillance aircraft'},
+  'a8b1c4':{agency:'DEA',country:'USA',note:'DEA interdiction'},
+  'a9b2c5':{agency:'DHS/CBP',country:'USA',note:'Border surveillance'},
   '43c3b9':{agency:'GCHQ',country:'UK',note:'Publicly identified SIGINT'},
   '43f1a2':{agency:'MI6',country:'UK',note:'SIS logistics'},
-  // RAF Rivet Joint (SIGINT) — publicly known
-  'zz664' :{agency:'RAF RC-135W',country:'UK',note:'SIGINT - publicly disclosed'},
-  // ── Germany ──────────────────────────────────
   '3f2a00':{agency:'BND',country:'Germany',note:'Bundesnachrichtendienst'},
-  '3e1bf9':{agency:'MAD/BND',country:'Germany',note:'Military intelligence'},
-  // ── France ───────────────────────────────────
   '39cf40':{agency:'DGSE',country:'France',note:'Direction générale sécurité'},
-  // ── Sweden ───────────────────────────────────
-  '4acf99':{agency:'MUST/SÄPO',country:'Sweden',note:'Swedish intel/security'},
-  // ── Known callsign patterns (any hex) ────────
+  '4acf99':{agency:'MUST/SÄPO',country:'Sweden',note:'Swedish intelligence'},
 };
+const INTEL_CS_PFX = ['SIGINT','RIVET','COBRA BALL','COBRA EYE','CHESS','DARKSTAR','LIBERTY','FREEDOM','PATRIOT','OPEN SKIES'];
+const SIGINT_TYPES = new Set(['RC35','E3CF','E3TF','E8CF','RC12','U2','TR1','PC12','C560','C680','GLF4','GLF5']);
 
-// Callsign prefixes known to be intel/surveillance
-const INTEL_CS_PFX = [
-  'SIGINT','RIVET','COBRA BALL','COBRA EYE','OPEN SKIES',
-  'CHESS','CHESS ','DARKSTAR','LIBERTY','FREEDOM',
-  'PATRIOT','IRON','RECON','SURVEIL',
-];
-
-// SIGINT aircraft type codes
-const SIGINT_TYPES = new Set(['RC35','E3CF','E3TF','E8CF','RC12','U2','TR1',
-  'B350','C12','PC12','C560','C680','GLF4','GLF5','FA50']);
-
-/* ═══════════════════════════════════════════════
-   SQUAWK STATUS
-═══════════════════════════════════════════════ */
+/* ═══ SQUAWK STATUS ════════════════════════════════════════════ */
 const SQUAWK_STATUS = {
-  '7500':{label:'⚠ HIJACK',     cls:'sq-hijack', desc:'Aircraft under unlawful seizure'},
-  '7600':{label:'📡 RADIO FAIL', cls:'sq-radio',  desc:'Loss of communications'},
-  '7700':{label:'🚨 EMERGENCY',  cls:'sq-emerg',  desc:'General emergency declared'},
+  '7500':{label:'⚠ Hijack declared',   cls:'sq-hijack', desc:'Aircraft under unlawful seizure'},
+  '7600':{label:'📡 Radio failure',     cls:'sq-radio',  desc:'Loss of radio communications'},
+  '7700':{label:'🚨 Emergency declared',cls:'sq-emerg',  desc:'General emergency in progress'},
 };
-function squawkStatus(sqk, emergency) {
-  if (SQUAWK_STATUS[sqk]) return SQUAWK_STATUS[sqk];
-  if (emergency && emergency !== 'none' && emergency !== '')
-    return {label:'🚨 '+emergency.toUpperCase(), cls:'sq-emerg', desc:'Emergency declared'};
-  return {label:'✓ Normal', cls:'sq-normal', desc:'No emergency'};
+function squawkStatus(sqk, emergency){
+  if(SQUAWK_STATUS[sqk]) return SQUAWK_STATUS[sqk];
+  if(emergency && emergency!=='none' && emergency!=='')
+    return {label:'🚨 '+emergency.charAt(0).toUpperCase()+emergency.slice(1), cls:'sq-emerg', desc:'Emergency declared'};
+  return {label:'✓ Normal operation', cls:'sq-normal', desc:'No emergency'};
 }
 
-/* ═══════════════════════════════════════════════
-   CLASSIFICATION
-═══════════════════════════════════════════════ */
-const RESCUE_PFX=['MEDEVAC','MEDVAC','SAR','RESCUE','HELIMED','AIRMED','LIFEFLIGHT',
-  'LIFEGUARD','CAREFLIGHT','MERCY','ANGEL','GUARDIAN','HOSP','DUSTOFF','PEDRO',
-  'ORNGE','CALSTAR','STAT','AIRAMB','MEDSTAR','AIRAMBULANCE'];
-const GOVT_PFX=['COASTGUARD','CSTGRD','POLICE','POLIZEI','POLIZIA','POLITIE',
-  'BORDER','CUSTOMS','CBP','DHS','FEDERAL','NATO','UN','EUFOR',
-  'AF1','AIRFORCE1','EXEC','SENATE','TREASURY'];
-const MIL_PFX=['RCH','REACH','ATLAS','JAKE','GOLD','IRON','VENOM','GHOST','HAWK',
-  'EAGLE','VIPER','RAPTOR','FALCON','THUNDER','COBRA','RAIDER','BONES','SPIRIT',
-  'TOPGUN','NAVY','ARMY','USAF','USMC','GAF','RAF','RAFAIR','SULTAN','RFR',
-  'TCX','IAF','PAF','RNLAF','AWACS','TANKER','REAPER'];
-const AL2=new Set(['SK','LH','BA','AF','KL','AY','DY','TK','FR','UA','AA','DL',
-  'WN','QR','EK','EY','SQ','CX','NH','JL','OS','LX','IB','AZ','TP','SN','U2',
-  'W6','LS','BY','HV','LO','OK','FI','TF','GL','VY','EI','RO','BT','PC']);
-const AL3=new Set(['SAS','NOZ','NAX','DLH','EWG','CLH','CFG','BAW','EZY','TOM',
-  'VIR','AFR','TVF','KLM','TRA','IBE','VLG','AZA','ITY','FIN','THY','ELY',
-  'UAE','ETD','QTR','SVA','GFA','SIA','MAS','THA','CPA','CSN','CCA','ANZ',
-  'QFA','TAM','GOL','AZU','LAN','AAL','UAL','DAL','SWA','ASA','JBU','NKS',
-  'AFL','LOT','WZZ','RYR','EIN','VOE']);
+/* ═══ CLASSIFICATION ═══════════════════════════════════════════ */
+const RESCUE_PFX=['MEDEVAC','MEDVAC','SAR','RESCUE','HELIMED','AIRMED','LIFEFLIGHT','LIFEGUARD','CAREFLIGHT','MERCY','ANGEL','GUARDIAN','HOSP','DUSTOFF','PEDRO','ORNGE','CALSTAR','STAT','AIRAMB','MEDSTAR','AIRAMBULANCE'];
+const GOVT_PFX=['COASTGUARD','CSTGRD','POLICE','POLIZEI','POLIZIA','POLITIE','BORDER','CUSTOMS','CBP','DHS','FEDERAL','NATO','UN','EUFOR','AF1','AIRFORCE1','EXEC','SENATE','TREASURY'];
+const MIL_PFX=['RCH','REACH','ATLAS','JAKE','GOLD','IRON','VENOM','GHOST','HAWK','EAGLE','VIPER','RAPTOR','FALCON','THUNDER','COBRA','RAIDER','BONES','SPIRIT','TOPGUN','NAVY','ARMY','USAF','USMC','GAF','RAF','RAFAIR','SULTAN','RFR','TCX','IAF','PAF','RNLAF','AWACS','TANKER','REAPER'];
+const AL2=new Set(['SK','LH','BA','AF','KL','AY','DY','TK','FR','UA','AA','DL','WN','QR','EK','EY','SQ','CX','NH','JL','OS','LX','IB','AZ','TP','SN','U2','W6','LS','BY','HV','LO','OK','FI','TF','GL','VY','EI','RO','BT','PC']);
+const AL3=new Set(['SAS','NOZ','NAX','DLH','EWG','CLH','CFG','BAW','EZY','TOM','VIR','AFR','TVF','KLM','TRA','IBE','VLG','AZA','ITY','FIN','THY','ELY','UAE','ETD','QTR','SVA','GFA','SIA','MAS','THA','CPA','CSN','CCA','ANZ','QFA','TAM','GOL','AZU','LAN','AAL','UAL','DAL','SWA','ASA','JBU','NKS','AFL','LOT','WZZ','RYR','EIN','VOE']);
 
-function classify(a) {
-  const hex = (a.hex||'').toLowerCase();
-  const cs  = (a.flight||'').trim().toUpperCase();
-  const t   = (a.t||'').toUpperCase();
-  // Intel DB match (hex)
-  if (INTEL_DB[hex]) return 'intel';
-  // Intel callsign patterns
-  for (const p of INTEL_CS_PFX) if (cs.startsWith(p)) return 'intel';
-  // SIGINT aircraft types
-  if (SIGINT_TYPES.has(t) && (a.dbFlags||0)&1) return 'intel';
-  // Military DB flag
-  if ((a.dbFlags||0)&1) return 'military';
-  // Emergency squawk → rescue
-  if ((a.squawk||'')==='7700') return 'rescue';
-  if (!cs) return 'unknown';
-  for (const p of RESCUE_PFX) if (cs.startsWith(p)) return 'rescue';
-  for (const p of GOVT_PFX)   if (cs.startsWith(p)) return 'government';
-  for (const p of MIL_PFX)    if (cs.startsWith(p)) return 'military';
-  const p3=cs.slice(0,3), p2=cs.slice(0,2);
-  if (AL3.has(p3)&&/\d/.test(cs[3]||'')) return 'commercial';
-  if (AL2.has(p2)&&/\d/.test(cs[2]||'')) return 'commercial';
-  if (/^[A-Z]{1,2}-[A-Z]{2,5}$/.test(cs)||/^N\d{1,5}[A-Z]{0,2}$/.test(cs)) return 'private';
+function classify(a){
+  const hex=(a.hex||'').toLowerCase(), cs=(a.flight||'').trim().toUpperCase(), t=(a.t||'').toUpperCase();
+  if(INTEL_DB[hex]) return 'intel';
+  for(const p of INTEL_CS_PFX) if(cs.startsWith(p)) return 'intel';
+  if(SIGINT_TYPES.has(t)&&(a.dbFlags||0)&1) return 'intel';
+  if((a.dbFlags||0)&1) return 'military';
+  if((a.squawk||'')==='7700') return 'rescue';
+  if(!cs) return 'unknown';
+  for(const p of RESCUE_PFX) if(cs.startsWith(p)) return 'rescue';
+  for(const p of GOVT_PFX)   if(cs.startsWith(p)) return 'government';
+  for(const p of MIL_PFX)    if(cs.startsWith(p)) return 'military';
+  const p3=cs.slice(0,3),p2=cs.slice(0,2);
+  if(AL3.has(p3)&&/\d/.test(cs[3]||'')) return 'commercial';
+  if(AL2.has(p2)&&/\d/.test(cs[2]||'')) return 'commercial';
+  if(/^[A-Z]{1,2}-[A-Z]{2,5}$/.test(cs)||/^N\d{1,5}[A-Z]{0,2}$/.test(cs)) return 'private';
   const reg=(a.r||'').toUpperCase();
-  if (/^[A-Z]{1,2}-[A-Z]{2,5}$/.test(reg)||/^N\d+/.test(reg)) return 'private';
+  if(/^[A-Z]{1,2}-[A-Z]{2,5}$/.test(reg)||/^N\d+/.test(reg)) return 'private';
   return 'unknown';
 }
-
-const CAT = {
-  commercial:{label:'Commercial',   color:'#7dd460'},
-  private:   {label:'Private / GA', color:'#a090f0'},
-  military:  {label:'Military',     color:'#e8a040'},
-  government:{label:'Government',   color:'#48c8e8'},
-  rescue:    {label:'Rescue / EMS', color:'#e85858'},
-  intel:     {label:'Intelligence', color:'#e060e8'},
-  unknown:   {label:'Other',        color:'#6b6e8a'},
+const CAT={
+  commercial:{label:'Commercial',  color:'#7dd460'},
+  private:   {label:'Private / GA',color:'#a090f0'},
+  military:  {label:'Military',    color:'#e8a040'},
+  government:{label:'Government',  color:'#48c8e8'},
+  rescue:    {label:'Rescue / EMS',color:'#e85858'},
+  intel:     {label:'Intelligence',color:'#e060e8'},
+  unknown:   {label:'Other',       color:'#6b6e8a'},
 };
+
+/* ═══ TYPE NAMES ══════════════════════════════════════════════ */
+const TYPE_NAMES={
+  A319:'Airbus A319',A320:'Airbus A320',A321:'Airbus A321',A332:'Airbus A330-200',A333:'Airbus A330-300',
+  A343:'Airbus A340-300',A346:'Airbus A340-600',A359:'Airbus A350-900',A35K:'Airbus A350-1000',
+  A380:'Airbus A380',A388:'Airbus A380-800',
+  B735:'Boeing 737-500',B736:'Boeing 737-600',B737:'Boeing 737-700',B738:'Boeing 737-800',
+  B739:'Boeing 737-900',B38M:'Boeing 737 MAX 8',B744:'Boeing 747-400',B748:'Boeing 747-8',
+  B752:'Boeing 757-200',B763:'Boeing 767-300',B772:'Boeing 777-200',B773:'Boeing 777-300',
+  B77W:'Boeing 777-300ER',B788:'Boeing 787-8',B789:'Boeing 787-9',B78X:'Boeing 787-10',
+  C172:'Cessna 172 Skyhawk',C208:'Cessna 208 Caravan',C25A:'Citation CJ2',C25B:'Citation CJ3',
+  C25C:'Citation CJ4',C560:'Citation V Ultra',C680:'Citation Sovereign',
+  C17:'Boeing C-17 Globemaster III',C130:'Lockheed C-130 Hercules',
+  E170:'Embraer E170',E175:'Embraer E175',E190:'Embraer E190',E195:'Embraer E195 LR',
+  E50P:'Embraer Phenom 100',E55P:'Embraer Phenom 300',
+  F16:'Lockheed F-16 Fighting Falcon',F18:'Boeing F/A-18 Hornet',F35:'Lockheed F-35 Lightning II',
+  GLF4:'Gulfstream IV',GLF5:'Gulfstream V',G550:'Gulfstream G550',G650:'Gulfstream G650',
+  RC35:'Northrop Grumman RC-135 Rivet Joint',U2:'Lockheed U-2 Dragon Lady',P8:'Boeing P-8 Poseidon',
+  PC12:'Pilatus PC-12',B350:'Beechcraft King Air 350',SR22:'Cirrus SR22',
+  EC35:'Airbus H135',EC45:'Airbus H145',S92:'Sikorsky S-92',AW139:'Leonardo AW139',
+  DH8D:'Bombardier Dash 8 Q400',AT75:'ATR 72-500',AT76:'ATR 72-600',
+  CRJ2:'Bombardier CRJ-200',CRJ7:'Bombardier CRJ-700',CRJ9:'Bombardier CRJ-900',
+};
+function typeName(c){return TYPE_NAMES[c]||c||'Unknown'}
 function flightPhase(ft,vr){
-  if(ft===null||ft<150) return 'Departing';
+  if(ft===null||ft<150) return 'Departing / On ground';
   if(vr>3)  return 'Climbing';
   if(vr<-3) return 'Descending';
   return 'Cruising';
 }
 
-/* ═══════════════════════════════════════════════
-   AIRCRAFT TYPE NAME LOOKUP  (ICAO type code → full name)
-═══════════════════════════════════════════════ */
-const TYPE_NAMES = {
-  A319:'Airbus A319',A320:'Airbus A320',A321:'Airbus A321',
-  A332:'Airbus A330-200',A333:'Airbus A330-300',
-  A343:'Airbus A340-300',A346:'Airbus A340-600',
-  A359:'Airbus A350-900',A35K:'Airbus A350-1000',
-  A380:'Airbus A380',A388:'Airbus A380-800',
-  B735:'Boeing 737-500',B736:'Boeing 737-600',B737:'Boeing 737-700',
-  B738:'Boeing 737-800',B739:'Boeing 737-900',B38M:'Boeing 737 MAX 8',
-  B744:'Boeing 747-400',B748:'Boeing 747-8',
-  B752:'Boeing 757-200',B753:'Boeing 757-300',
-  B762:'Boeing 767-200',B763:'Boeing 767-300',B764:'Boeing 767-400',
-  B772:'Boeing 777-200',B773:'Boeing 777-300',B77W:'Boeing 777-300ER',
-  B788:'Boeing 787-8',B789:'Boeing 787-9',B78X:'Boeing 787-10',
-  C172:'Cessna 172',C182:'Cessna 182',C208:'Cessna Caravan',
-  C25A:'Citation CJ2',C25B:'Citation CJ3',C25C:'Citation CJ4',
-  C560:'Citation Ultra',C680:'Citation Sovereign',
-  C17 :'Boeing C-17 Globemaster',C130:'Lockheed C-130 Hercules',
-  E170:'Embraer E170',E175:'Embraer E175',E190:'Embraer E190',E195:'Embraer E195',
-  E50P:'Embraer Phenom 100',E55P:'Embraer Phenom 300',
-  F16 :'Lockheed F-16 Fighting Falcon',F18 :'Boeing F/A-18 Hornet',
-  F35 :'Lockheed F-35 Lightning II',
-  GLF4:'Gulfstream IV',GLF5:'Gulfstream V',G550:'Gulfstream G550',
-  G650:'Gulfstream G650',GL7T:'Gulfstream G700',
-  RC35:'Northrop Grumman RC-135 Rivet Joint',
-  U2  :'Lockheed U-2 Dragon Lady',
-  P8  :'Boeing P-8 Poseidon',
-  A10 :'Fairchild A-10 Thunderbolt II',
-  PC12:'Pilatus PC-12',B350:'Beechcraft King Air 350',
-  SR22:'Cirrus SR22',DA42:'Diamond DA42',
-  R44 :'Robinson R44',EC35:'Airbus H135',EC45:'Airbus H145',
-  S92 :'Sikorsky S-92',AW139:'Leonardo AW139',
-  DH8D:'Bombardier Dash 8 Q400',AT75:'ATR 72-500',AT76:'ATR 72-600',
-  CRJ2:'Bombardier CRJ-200',CRJ7:'Bombardier CRJ-700',CRJ9:'Bombardier CRJ-900',
-};
-function typeName(code){ return TYPE_NAMES[code] || code || '—'; }
+/* ═══ STATE ════════════════════════════════════════════════════ */
+let flightMap={}, acCache={}, selected=null, activeFilter='all', query='', markers={};
+let autoTimer=null, moveTimer=null, isFetching=false, workingApi=null;
 
-/* ═══════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════ */
-let flightMap   = {};
-let acCache     = {};   // hex → {type, reg, owner, photoUrl}
-let selected    = null;
-let activeFilter= 'all';
-let query       = '';
-let markers     = {};
-let autoTimer   = null;
-let moveTimer   = null;
-let isFetching  = false;
-let workingApi  = null;
-
-/* ═══════════════════════════════════════════════
-   MAP
-═══════════════════════════════════════════════ */
-const map = L.map('map',{zoomControl:true,attributionControl:true,zoomControl:false}).setView([52,10],5);
+/* ═══ MAP ══════════════════════════════════════════════════════ */
+const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([52,10],5);
 L.control.zoom({position:'bottomright'}).addTo(map);
 
-// ── TILE LAYERS ──────────────────────────────────────────────
-const SAT_LAYER = L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  {maxZoom:19, attribution:'Tiles © Esri — Esri, Maxar, Earthstar Geographics, GIS User Community'}
-);
-const DARK_LAYER = L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
-  {maxZoom:19, subdomains:'abcd', attribution:'© CartoDB'}
-);
-// Labels always on top (same for both base layers)
-const LABELS_LAYER = L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-  {maxZoom:19, subdomains:'abcd', pane:'shadowPane', opacity:0.85}
-);
+const SAT_LAYER=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxZoom:19,attribution:'Tiles © Esri — Esri, Maxar, Earthstar Geographics'});
+const DARK_LAYER=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+  {maxZoom:19,subdomains:'abcd',attribution:'© CartoDB'});
+const LABELS_LAYER=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+  {maxZoom:19,subdomains:'abcd',pane:'shadowPane',opacity:0.9});
 
-// Start with satellite
-SAT_LAYER.addTo(map);
-LABELS_LAYER.addTo(map);
-let isSatellite = true;
+SAT_LAYER.addTo(map); LABELS_LAYER.addTo(map);
+let isSatellite=true;
 
-// ── LAYER TOGGLE BUTTON ──────────────────────────────────────
-const layerBtn = document.createElement('button');
-layerBtn.id = 'layerbtn';
-layerBtn.title = 'Toggle map style';
-layerBtn.textContent = '🌙 Dark';
-layerBtn.style.cssText = `position:absolute;top:10px;right:10px;z-index:1000;
-  background:rgba(20,23,32,0.88);color:#e0e2ee;border:1px solid #232636;
-  border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;
-  font-family:inherit;backdrop-filter:blur(4px);`;
-layerBtn.onclick = () => {
-  if(isSatellite){
-    map.removeLayer(SAT_LAYER);
-    DARK_LAYER.addTo(map);
-    layerBtn.textContent = '🛰 Satellite';
-    isSatellite = false;
-  } else {
-    map.removeLayer(DARK_LAYER);
-    SAT_LAYER.addTo(map);
-    layerBtn.textContent = '🌙 Dark';
-    isSatellite = true;
-  }
+// Layer toggle
+const layerBtn=document.createElement('button');
+layerBtn.id='layerbtn';
+layerBtn.textContent='🌙 Dark';
+layerBtn.style.cssText='position:absolute;top:10px;right:10px;z-index:1000;background:rgba(20,23,32,.9);color:#e0e2ee;border:1px solid #2a2d42;border-radius:8px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit';
+layerBtn.onclick=()=>{
+  if(isSatellite){map.removeLayer(SAT_LAYER);DARK_LAYER.addTo(map);layerBtn.textContent='🛰 Satellite';isSatellite=false;}
+  else{map.removeLayer(DARK_LAYER);SAT_LAYER.addTo(map);layerBtn.textContent='🌙 Dark';isSatellite=true;}
 };
 document.getElementById('map').appendChild(layerBtn);
 
+// NFZ toggle
+const nfzBtn=document.createElement('button');
+nfzBtn.style.cssText='position:absolute;top:44px;right:10px;z-index:1000;background:rgba(20,23,32,.9);color:#e85858;border:1px solid #882020;border-radius:8px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit';
+nfzBtn.textContent='🚫 No-fly zones';
+let nfzVisible=true;
+document.getElementById('map').appendChild(nfzBtn);
+
 map.on('moveend zoomend',()=>{
-  // Always fetch on move — route line will remain, just refresh plane data
   clearTimeout(moveTimer);
   moveTimer=setTimeout(()=>fetchViewport(false),500);
 });
 
-/* ═══════════════════════════════════════════════
-   AIRCRAFT ICON  — proper top-down silhouette
-═══════════════════════════════════════════════ */
+/* ═══ PLANE ICON ═══════════════════════════════════════════════ */
 function planeIcon(hdg,color,sz,op){
   const s=sz||20;
   return L.divIcon({
     html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 32 32"
       style="transform:rotate(${hdg||0}deg);opacity:${op||1};display:block;overflow:visible">
-      <g fill="${color}" stroke="#0a0c14" stroke-width="1.2" stroke-linejoin="round">
+      <g fill="${color}" stroke="#0a0c14" stroke-width="1.3" stroke-linejoin="round">
         <ellipse cx="16" cy="16" rx="2.2" ry="9"/>
         <polygon points="16,13 4,22 8,22 16,17 24,22 28,22"/>
         <polygon points="16,23 11,28 13,28 16,25 19,28 21,28"/>
-      </g>
-    </svg>`,
+      </g></svg>`,
     className:'',iconSize:[s,s],iconAnchor:[s/2,s/2]
   });
 }
 
-/* ═══════════════════════════════════════════════
-   HEXDB.IO ENRICHMENT  (type, owner, photo)
-   Free, no key, CORS-open
-═══════════════════════════════════════════════ */
-async function enrichAircraft(hex, callsign) {
-  if (!hex || hex==='—') return;
-  if (acCache[hex] && acCache[hex]._done) return;
-  acCache[hex] = {_done:false};
-  vlog('info', `Enriching hex=${hex} callsign=${callsign||'?'}`);
-  try {
-    // 1. Aircraft info + photo from hexdb.io (via proxy for github.io)
-    const infoUrl  = PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
-    const imgUrl   = PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
-    const [infoRes, imgRes] = await Promise.all([
-      fetch(infoUrl).catch(()=>null),
-      fetch(imgUrl).catch(()=>null)
-    ]);
-    if (infoRes && infoRes.ok) {
-      const d = await infoRes.json();
-      Object.assign(acCache[hex], {
-        typeFull: d.Type || '',
-        manufacturer: d.Manufacturer || '',
-        owner: d.RegisteredOwners || '',
-        reg: d.Registration || '',
-        operator: d.OperatorFlagCode || '',
-      });
-      vlog('ok', `  hexdb: ${d.Type} / ${d.RegisteredOwners}`);
-    } else { vlog('warn','  hexdb aircraft info failed'); }
-    if (imgRes && imgRes.ok) {
-      const blob = await imgRes.blob();
-      if (blob.size > 500) {
-        acCache[hex].photoUrl = URL.createObjectURL(blob);
-        vlog('ok','  Photo loaded');
-      }
-    }
-  } catch(e) { vlog('error','  hexdb fetch error: '+e.message); }
-
-  // 2. Route (origin+destination) from adsbdb.com
-  if (callsign && callsign.trim() && callsign !== '?') {
-    try {
-      const cs = callsign.trim().toUpperCase();
-      const routeUrl = PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
-      vlog('info', `  adsbdb route for callsign=${cs}`);
-      const rRes = await fetch(routeUrl);
-      if (rRes.ok) {
-        const rj = await rRes.json();
-        const fr = rj?.response?.flightroute;
-        if (fr && fr.origin && fr.destination) {
-          acCache[hex].route = {
-            origin:      fr.origin,
-            destination: fr.destination,
-            midpoint:    fr.midpoint || null,
-            airline:     fr.airline  || null,
-          };
-          vlog('ok', `  Route: ${fr.origin.icao_code} → ${fr.destination.icao_code}`);
-        } else { vlog('warn','  adsbdb: no route data for '+cs); }
-      } else { vlog('warn','  adsbdb HTTP '+rRes.status); }
-    } catch(e) { vlog('error','  adsbdb error: '+e.message); }
-  }
-
-  acCache[hex]._done = true;
-}
-
-/* ═══════════════════════════════════════════════
-   API SOURCES
-═══════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════════
-   VERBOSE LOG  — on-screen + console
-═══════════════════════════════════════════════ */
-const logLines = [];
-function vlog(level, msg) {
-  const t = new Date().toLocaleTimeString();
-  const line = `[${t}] ${level.toUpperCase()}: ${msg}`;
-  console.log(line);
-  logLines.unshift(line);
-  if (logLines.length > 40) logLines.pop();
-  const el = document.getElementById('logpanel');
-  if (el && !el.classList.contains('hidden')) {
-    el.querySelector('#loglines').innerHTML =
-      logLines.map(l => {
-        const col = l.includes('ERROR')||l.includes('FAIL') ? '#e85858'
-                  : l.includes('OK')||l.includes('SUCCESS')  ? '#7dd460'
-                  : l.includes('WARN')                        ? '#e8a040'
-                  : '#aab0c8';
-        return `<div style="color:${col}">${l}</div>`;
-      }).join('');
-  }
-}
-
-/* ═══════════════════════════════════════════════
-   API SOURCES + MULTI-PROXY FALLBACK
-   Strategy:
-   1. Try direct (no proxy) — fastest, works if API has open CORS
-   2. Try corsproxy.io — explicitly supports github.io free tier
-   3. Try allorigins.win — secondary free proxy
-   4. Try thingproxy.freeboard.io — tertiary fallback
-═══════════════════════════════════════════════ */
-
-// CORS proxies tried in order when direct fails
-const PROXIES = [
-  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  url => `https://thingproxy.freeboard.io/fetch/${url}`,
+/* ═══ PROXIES ══════════════════════════════════════════════════ */
+const PROXIES=[
+  u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u=>`https://thingproxy.freeboard.io/fetch/${u}`,
+];
+const API_BASES=[
+  {name:'adsb.lol',       base:'https://api.adsb.lol'},
+  {name:'adsb.one',       base:'https://api.adsb.one'},
+  {name:'airplanes.live', base:'https://api.airplanes.live'},
+  {name:'adsb.fi',        base:'https://opendata.adsb.fi/api'},
 ];
 
-// API bases — all serve ADSBx v2 JSON
-const API_BASES = [
-  { name:'adsb.lol',        base:'https://api.adsb.lol'         },
-  { name:'adsb.one',        base:'https://api.adsb.one'         },
-  { name:'airplanes.live',  base:'https://api.airplanes.live'   },
-  { name:'adsb.fi',         base:'https://opendata.adsb.fi/api' },
-];
-
-// Build direct URL for a base + lat/lon/dist
-function directUrl(base, lat, lon, dist) {
-  return `${base}/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
-}
-
-// Try fetching a URL directly first, then through proxies
-async function fetchWithFallback(directURL, label, timeoutMs=10000) {
-  // Attempt 1: direct
-  const d = await _rawFetch(directURL, label+' direct', timeoutMs);
-  if (d !== null) return d;
-  // Attempts 2+: proxies
-  for (let i=0; i<PROXIES.length; i++) {
-    const proxied = PROXIES[i](directURL);
-    const r = await _rawFetch(proxied, `${label} proxy${i+1}`, timeoutMs);
-    if (r !== null) return r;
-  }
-  return null;
-}
-
-async function _rawFetch(url, label, timeoutMs) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(()=>ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {signal:ctrl.signal});
+async function _rawFetch(url,label,ms){
+  const ctrl=new AbortController(),tid=setTimeout(()=>ctrl.abort(),ms||10000);
+  try{
+    const res=await fetch(url,{signal:ctrl.signal});
     clearTimeout(tid);
-    if (!res.ok) {
-      vlog('warn', `${label} → HTTP ${res.status}`);
-      return null;
-    }
-    const j = await res.json();
-    if (j && Array.isArray(j.ac)) {
-      vlog('ok', `${label} → ${j.ac.length} ac`);
-      return j;
-    }
-    // allorigins wraps in {contents:"..."}
-    if (j && j.contents) {
-      try {
-        const inner = JSON.parse(j.contents);
-        if (inner && Array.isArray(inner.ac)) {
-          vlog('ok', `${label} (unwrapped) → ${inner.ac.length} ac`);
-          return inner;
-        }
-      } catch(e2){}
-    }
-    vlog('warn', `${label} → no ac[] in response`);
-    return null;
-  } catch(e) {
-    clearTimeout(tid);
-    vlog('warn', `${label} → ${e.name==='AbortError'?'timeout':e.message}`);
-    return null;
-  }
+    if(!res.ok){vlog('warn',`${label} → HTTP ${res.status}`);return null;}
+    const j=await res.json();
+    if(j&&Array.isArray(j.ac)){vlog('ok',`${label} → ${j.ac.length} aircraft`);return j;}
+    if(j&&j.contents){try{const i=JSON.parse(j.contents);if(i&&Array.isArray(i.ac))return i;}catch(e){}}
+    vlog('warn',`${label} → no aircraft array`);return null;
+  }catch(e){clearTimeout(tid);vlog('warn',`${label} → ${e.name==='AbortError'?'timeout':e.message}`);return null;}
 }
 
-// Probe to find fastest working API+proxy combo
-async function probeApis() {
-  const c = map.getCenter();
-  const lat = c.lat.toFixed(2), lon = c.lng.toFixed(2);
-  vlog('info', `Probing APIs for lat=${lat} lon=${lon}`);
-  for (const src of API_BASES) {
-    const url = directUrl(src.base, lat, lon, 50);
-    // Quick direct probe first (2s timeout)
-    const d = await _rawFetch(url, src.name+' direct', 2000);
-    if (d !== null) {
-      workingApi = {...src, useProxy: false};
-      vlog('ok', `Working API (direct): ${src.name}`);
-      return workingApi;
-    }
-    // Try proxies (5s each)
-    for (let i=0; i<PROXIES.length; i++) {
-      const r = await _rawFetch(PROXIES[i](url), `${src.name} proxy${i+1}`, 5000);
-      if (r !== null) {
-        workingApi = {...src, useProxy: true, proxyIdx: i};
-        vlog('ok', `Working API: ${src.name} via proxy${i+1}`);
-        return workingApi;
-      }
+async function probeApis(){
+  const c=map.getCenter(),lat=c.lat.toFixed(2),lon=c.lng.toFixed(2);
+  vlog('info',`Probing APIs lat=${lat} lon=${lon}`);
+  for(const src of API_BASES){
+    const direct=`${src.base}/v2/lat/${lat}/lon/${lon}/dist/50`;
+    const d=await _rawFetch(direct,src.name+' direct',2000);
+    if(d!==null){workingApi={...src,useProxy:false};vlog('ok',`Working: ${src.name} direct`);return workingApi;}
+    for(let i=0;i<PROXIES.length;i++){
+      const r=await _rawFetch(PROXIES[i](direct),`${src.name} proxy${i+1}`,5000);
+      if(r!==null){workingApi={...src,useProxy:true,proxyIdx:i};vlog('ok',`Working: ${src.name} proxy${i+1}`);return workingApi;}
     }
   }
-  vlog('error', 'ALL APIs failed');
-  return null;
+  vlog('error','All APIs failed');return null;
 }
 
-// Build fetch URL for the working API
-function buildUrl(lat, lon, dist) {
-  const base = workingApi.base;
-  const direct = directUrl(base, lat, lon, dist);
-  if (!workingApi.useProxy) return direct;
-  return PROXIES[workingApi.proxyIdx||0](direct);
+function buildUrl(lat,lon,dist){
+  const direct=`${workingApi.base}/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
+  return workingApi.useProxy?PROXIES[workingApi.proxyIdx||0](direct):direct;
 }
 
-/* ═══════════════════════════════════════════════
-   VIEWPORT TILING
-   API max = 250 NM per query. When viewport is wider,
-   we tile it with a grid of 250 NM circles.
-═══════════════════════════════════════════════ */
-const QUERY_RADIUS_NM = 250; // hard API limit
-const QUERY_RADIUS_KM = QUERY_RADIUS_NM * 1.852; // ~463 km
-const QUERY_RADIUS_DEG = QUERY_RADIUS_KM / 111;   // ~4.17°
-
-function getViewportTiles() {
-  const b   = map.getBounds().pad(0.05);
-  const minLat = Math.max(b.getSouth(), -85);
-  const maxLat = Math.min(b.getNorth(),  85);
-  const minLon = b.getWest();
-  const maxLon = b.getEast();
-
-  const stepDeg = QUERY_RADIUS_DEG * 1.6; // overlap ~60% so no gaps
-  const tiles = [];
-
-  for (let lat = minLat + stepDeg/2; lat < maxLat + stepDeg/2; lat += stepDeg) {
-    const clampedLat = Math.max(minLat, Math.min(maxLat, lat));
-    // Longitude step adjusts for latitude (mercator correction)
-    const lonStep = stepDeg / Math.max(0.1, Math.cos(clampedLat * Math.PI/180));
-    for (let lon = minLon + lonStep/2; lon < maxLon + lonStep/2; lon += lonStep) {
-      tiles.push({
-        lat: clampedLat.toFixed(3),
-        lon: Math.max(minLon, Math.min(maxLon, lon)).toFixed(3)
-      });
+const QUERY_NM=250,QUERY_KM=QUERY_NM*1.852,QUERY_DEG=QUERY_KM/111;
+function getViewportTiles(){
+  const b=map.getBounds().pad(0.05);
+  const minLat=Math.max(b.getSouth(),-85),maxLat=Math.min(b.getNorth(),85);
+  const minLon=b.getWest(),maxLon=b.getEast();
+  const step=QUERY_DEG*1.6,tiles=[];
+  for(let lat=minLat+step/2;lat<maxLat+step/2;lat+=step){
+    const cl=Math.max(minLat,Math.min(maxLat,lat));
+    const lonStep=step/Math.max(0.1,Math.cos(cl*Math.PI/180));
+    for(let lon=minLon+lonStep/2;lon<maxLon+lonStep/2;lon+=lonStep){
+      tiles.push({lat:cl.toFixed(3),lon:Math.max(minLon,Math.min(maxLon,lon)).toFixed(3)});
     }
   }
-
-  // Always include viewport centre as a tile
-  const c = map.getCenter();
-  tiles.unshift({lat: c.lat.toFixed(3), lon: c.lng.toFixed(3)});
-
-  vlog('info', `Viewport: ${(maxLat-minLat).toFixed(1)}°lat × ${(maxLon-minLon).toFixed(1)}°lon → ${tiles.length} tile(s)`);
+  const c=map.getCenter();tiles.unshift({lat:c.lat.toFixed(3),lon:c.lng.toFixed(3)});
+  vlog('info',`Viewport ${(maxLat-minLat).toFixed(1)}°×${(maxLon-minLon).toFixed(1)}° → ${tiles.length} tile(s)`);
   return tiles;
 }
 
-
-
+/* ═══ PARSE ════════════════════════════════════════════════════ */
 function parseV2(ac){
   return ac.filter(a=>a.lat!=null&&a.lon!=null&&a.alt_baro!=='ground'&&a.alt_baro!=null)
     .map(a=>{
       const ft=typeof a.alt_baro==='number'?Math.round(a.alt_baro):null;
-      return{
-        id:(a.flight||a.r||a.hex||'?').trim(),
-        hex:a.hex||'—', reg:a.r||'—', type:a.t||'—',
-        country:a.ownOp||'—',
-        lat:a.lat, lng:a.lon, alt:ft,
-        spd:a.gs?Math.round(a.gs):null,
-        hdg:a.track?Math.round(a.track):0,
-        vrate:a.baro_rate||0,
-        sqk:a.squawk||'—',
-        emergency:a.emergency||'none',
-        dbFlags:a.dbFlags||0,
-        phase:flightPhase(ft,a.baro_rate||0),
-        category:classify(a),
-      };
+      return{id:(a.flight||a.r||a.hex||'?').trim(),hex:a.hex||'—',reg:a.r||'—',type:a.t||'—',
+        country:a.ownOp||'—',lat:a.lat,lng:a.lon,alt:ft,
+        spd:a.gs?Math.round(a.gs):null,hdg:a.track?Math.round(a.track):0,
+        vrate:a.baro_rate||0,sqk:a.squawk||'—',emergency:a.emergency||'none',
+        dbFlags:a.dbFlags||0,phase:flightPhase(ft,a.baro_rate||0),category:classify(a)};
     });
 }
 
-/* ═══════════════════════════════════════════════
-   MAIN FETCH — viewport-tiled, covers full map view
-═══════════════════════════════════════════════ */
+/* ═══ MAIN FETCH ═══════════════════════════════════════════════ */
 async function fetchViewport(manual){
-  if(isFetching&&!manual) return;
-  isFetching=true; ring(true);
-  if(manual) document.getElementById('rbtn').classList.add('spin');
+  if(isFetching&&!manual)return;
+  isFetching=true;ring(true);
+  if(manual)document.getElementById('rbtn').classList.add('spin');
   setStatus('load','Loading…');
-
-  // Probe for working API if not cached
+  if(!workingApi){vlog('info','Probing APIs…');await probeApis();}
   if(!workingApi){
-    vlog('info','No working API — probing…');
-    await probeApis();
-  }
-  if(!workingApi){
-    if(Object.keys(flightMap).length===0) loadDemo();
+    if(Object.keys(flightMap).length===0)loadDemo();
     setStatus('err','All APIs unreachable — showing demo data');
     document.getElementById('srcbadge').textContent='demo';
-    isFetching=false; ring(false);
-    document.getElementById('rbtn').classList.remove('spin');
-    renderMap(); return;
+    isFetching=false;ring(false);document.getElementById('rbtn').classList.remove('spin');
+    renderMap();return;
   }
-
-  // Get all tile query points covering current viewport
-  const tiles = getViewportTiles();
-
-  // Fetch all tiles in parallel (each is a 250nm circle)
-  setStatus('load', `Fetching ${tiles.length} tile(s) via ${workingApi.name}…`);
-  const tilePromises = tiles.map(t =>
-    _rawFetch(
-      buildUrl(t.lat, t.lon, QUERY_RADIUS_NM),
-      `${workingApi.name} [${t.lat},${t.lon}]`,
-      10000
-    )
-  );
-  const tileResults = await Promise.all(tilePromises);
-
-  // Deduplicate by hex across all tiles
-  const seenHex = new Set();
-  const allAc   = [];
-  let tileCount = 0;
-  tileResults.forEach(j => {
-    if (!j) return;
-    tileCount++;
-    (j.ac||[]).forEach(a => {
-      if (a.hex && !seenHex.has(a.hex)) {
-        seenHex.add(a.hex);
-        allAc.push(a);
-      }
-    });
-  });
-
-  if(tileCount > 0){
-    const fresh    = parseV2(allAc);
-    const freshSet = new Set(fresh.map(f=>f.hex));
-    fresh.forEach(f=>{ flightMap[f.hex]=f; });
-
-    // Prune aircraft outside padded viewport
-    const bounds = map.getBounds().pad(0.3);
-    let pruned = 0;
-    Object.keys(flightMap).forEach(hex=>{
-      const f=flightMap[hex];
-      if(!freshSet.has(hex) && !bounds.contains([f.lat,f.lng])){
-        delete flightMap[hex]; pruned++;
-      }
-    });
-
-    const t = new Date().toLocaleTimeString();
-    const proxyLabel = workingApi.useProxy ? ` proxy${(workingApi.proxyIdx||0)+1}` : ' direct';
-    document.getElementById('srcbadge').textContent =
-      `${workingApi.name}${proxyLabel} · ${tiles.length}×250nm`;
-    setStatus('ok',
-      `${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${t}` +
-      (pruned ? ` · pruned ${pruned}` : '')
-    );
-    vlog('ok', `Total: ${allAc.length} raw → ${fresh.length} airborne from ${tileCount}/${tiles.length} tiles`);
-  } else {
-    // All tiles failed — reset API so next attempt re-probes
-    vlog('warn', `All ${tiles.length} tiles failed — resetting API`);
-    workingApi = null;
-    setStatus('err','Fetch failed — will re-probe on next move');
-  }
-
-  isFetching=false; ring(false);
-  document.getElementById('rbtn').classList.remove('spin');
+  const tiles=getViewportTiles();
+  setStatus('load',`Fetching ${tiles.length} area(s)…`);
+  const results=await Promise.all(tiles.map(t=>_rawFetch(buildUrl(t.lat,t.lon,QUERY_NM),`${workingApi.name}[${t.lat},${t.lon}]`,10000)));
+  const seen=new Set(),allAc=[];let tileCount=0;
+  results.forEach(j=>{if(!j)return;tileCount++;(j.ac||[]).forEach(a=>{if(a.hex&&!seen.has(a.hex)){seen.add(a.hex);allAc.push(a);}});});
+  if(tileCount>0){
+    const fresh=parseV2(allAc),freshSet=new Set(fresh.map(f=>f.hex));
+    fresh.forEach(f=>{flightMap[f.hex]=f;});
+    const bounds=map.getBounds().pad(0.3);let pruned=0;
+    Object.keys(flightMap).forEach(hex=>{const f=flightMap[hex];if(!freshSet.has(hex)&&!bounds.contains([f.lat,f.lng])){delete flightMap[hex];pruned++;}});
+    const pLabel=workingApi.useProxy?` proxy${(workingApi.proxyIdx||0)+1}`:' direct';
+    document.getElementById('srcbadge').textContent=`${workingApi.name}${pLabel} · ${tiles.length}×250nm`;
+    setStatus('ok',`${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${new Date().toLocaleTimeString()}`);
+    vlog('ok',`${allAc.length} raw → ${fresh.length} airborne from ${tileCount}/${tiles.length} tiles`);
+  }else{workingApi=null;setStatus('err','Fetch failed — will re-probe');}
+  isFetching=false;ring(false);document.getElementById('rbtn').classList.remove('spin');
   renderMap();
 }
 
-/* ═══════════════════════════════════════════════
-   DEMO DATA
-═══════════════════════════════════════════════ */
+/* ═══ DEMO DATA ════════════════════════════════════════════════ */
 function loadDemo(){
-  [
-    {id:'SK0425',hex:'4acdef',reg:'SE-ROG',type:'A320',country:'SAS',lat:55.9,lng:13.2,alt:28000,spd:440,hdg:195,vrate:-1,sqk:'2341',emergency:'none',phase:'Cruising',category:'commercial',dbFlags:0},
-    {id:'LH0772',hex:'3c4a80',reg:'D-AIQE',type:'A321',country:'Lufthansa',lat:56.8,lng:13.9,alt:14500,spd:380,hdg:162,vrate:14,sqk:'2142',emergency:'none',phase:'Climbing',category:'commercial',dbFlags:0},
-    {id:'RCH211',hex:'ae1234',reg:'85-0049',type:'C17',country:'USAF',lat:50.2,lng:8.4,alt:31000,spd:465,hdg:268,vrate:0,sqk:'7001',emergency:'none',phase:'Cruising',category:'military',dbFlags:1},
-    {id:'GAF689',hex:'3f2a00',reg:'16+02',type:'A319',country:'GAF',lat:48.5,lng:11.2,alt:27000,spd:440,hdg:178,vrate:0,sqk:'7002',emergency:'none',phase:'Cruising',category:'military',dbFlags:1},
-    {id:'N4782K',hex:'a81c4f',reg:'N4782K',type:'C172',country:'',lat:41.8,lng:-88.0,alt:9500,spd:110,hdg:88,vrate:0,sqk:'1200',emergency:'none',phase:'Cruising',category:'private',dbFlags:0},
-    {id:'MEDEVAC1',hex:'4acf01',reg:'SE-JEV',type:'EC35',country:'',lat:59.3,lng:18.1,alt:1200,spd:130,hdg:42,vrate:6,sqk:'7700',emergency:'general',phase:'Climbing',category:'rescue',dbFlags:0},
-    {id:'POLICE1',hex:'4ab111',reg:'SE-HPX',type:'B350',country:'POLISEN',lat:59.4,lng:17.9,alt:900,spd:140,hdg:22,vrate:0,sqk:'0020',emergency:'none',phase:'Cruising',category:'government',dbFlags:0},
-    // Demo intel aircraft
-    {id:'SIGINT1',hex:'ae040e',reg:'64-14841',type:'RC35',country:'USAF',lat:52.1,lng:14.2,alt:33000,spd:480,hdg:90,vrate:0,sqk:'2100',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1},
-    {id:'COBRA77',hex:'43c3b9',reg:'ZZ664',type:'RC35',country:'RAF',lat:55.2,lng:8.4,alt:29000,spd:460,hdg:45,vrate:0,sqk:'2200',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1},
+  [{id:'SK0425',hex:'4acdef',reg:'SE-ROG',type:'A320',country:'SAS',lat:55.9,lng:13.2,alt:28000,spd:440,hdg:195,vrate:-1,sqk:'2341',emergency:'none',phase:'Cruising',category:'commercial',dbFlags:0},
+   {id:'LH0772',hex:'3c4a80',reg:'D-AIQE',type:'A321',country:'Lufthansa',lat:56.8,lng:13.9,alt:14500,spd:380,hdg:162,vrate:14,sqk:'2142',emergency:'none',phase:'Climbing',category:'commercial',dbFlags:0},
+   {id:'RCH211',hex:'ae1234',reg:'85-0049',type:'C17',country:'USAF',lat:50.2,lng:8.4,alt:31000,spd:465,hdg:268,vrate:0,sqk:'7001',emergency:'none',phase:'Cruising',category:'military',dbFlags:1},
+   {id:'N4782K',hex:'a81c4f',reg:'N4782K',type:'C172',country:'',lat:41.8,lng:-88.0,alt:9500,spd:110,hdg:88,vrate:0,sqk:'1200',emergency:'none',phase:'Cruising',category:'private',dbFlags:0},
+   {id:'MEDEVAC1',hex:'4acf01',reg:'SE-JEV',type:'EC35',country:'',lat:59.3,lng:18.1,alt:1200,spd:130,hdg:42,vrate:6,sqk:'7700',emergency:'general',phase:'Climbing',category:'rescue',dbFlags:0},
+   {id:'POLICE1',hex:'4ab111',reg:'SE-HPX',type:'B350',country:'POLISEN',lat:59.4,lng:17.9,alt:900,spd:140,hdg:22,vrate:0,sqk:'0020',emergency:'none',phase:'Cruising',category:'government',dbFlags:0},
+   {id:'SIGINT1',hex:'ae040e',reg:'64-14841',type:'RC35',country:'USAF',lat:52.1,lng:14.2,alt:33000,spd:480,hdg:90,vrate:0,sqk:'2100',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1},
   ].forEach(f=>{flightMap[f.hex]=f;});
 }
 
-/* ═══════════════════════════════════════════════
-   FILTER + SEARCH
-═══════════════════════════════════════════════ */
+/* ═══ FILTER + SEARCH ══════════════════════════════════════════ */
 function allList(){return Object.values(flightMap);}
 function filtered(){
   let d=activeFilter==='all'?allList():allList().filter(f=>f.category===activeFilter);
-  if(query){
-    const q=query.toUpperCase();
-    d=d.filter(f=>f.id.toUpperCase().includes(q)||f.hex.includes(q)||
-      f.type.toUpperCase().includes(q)||f.reg.toUpperCase().includes(q)||
-      f.country.toUpperCase().includes(q));
-  }
+  if(query){const q=query.toUpperCase();d=d.filter(f=>f.id.toUpperCase().includes(q)||f.hex.includes(q)||f.type.toUpperCase().includes(q)||f.reg.toUpperCase().includes(q)||f.country.toUpperCase().includes(q));}
   return d;
 }
 function setFilter(cat,el){
   activeFilter=cat;
   document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
-  if(selected){
-    const f=Object.values(flightMap).find(x=>x.id===selected);
-    if(f&&cat!=='all'&&f.category!==cat) deselect(true);
-  }
+  if(selected){const f=Object.values(flightMap).find(x=>x.id===selected);if(f&&cat!=='all'&&f.category!==cat)deselect(true);}
   renderMap();
 }
 function onSearch(){query=document.getElementById('search').value.trim();renderMap();}
 
-/* ═══════════════════════════════════════════════
-   RENDER
-═══════════════════════════════════════════════ */
+/* ═══ RENDER MAP ═══════════════════════════════════════════════ */
 function renderMap(){
-  const vis    = filtered();
-  const visSet = new Set(vis.map(f=>f.hex));
-
-  // Remove markers for planes no longer in flightMap OR not passing filter
-  // (keep selected plane regardless of filter)
+  const vis=filtered(),visSet=new Set(vis.map(f=>f.hex));
   Object.keys(markers).forEach(hex=>{
-    const keep = flightMap[hex] && (visSet.has(hex) || (selected && flightMap[hex]?.id===selected));
-    if(!keep){ map.removeLayer(markers[hex]); delete markers[hex]; }
+    const keep=flightMap[hex]&&(visSet.has(hex)||(selected&&flightMap[hex]?.id===selected));
+    if(!keep){map.removeLayer(markers[hex]);delete markers[hex];}
   });
-
-  document.getElementById('pill').textContent=vis.length.toLocaleString()+' ac';
+  document.getElementById('pill').textContent=vis.length.toLocaleString()+' aircraft';
   document.getElementById('fab').className=selected?'on':'';
-
-  // Render only visible + selected
-  const toRender = selected
-    ? [...vis, ...(allList().filter(f=>f.id===selected&&!visSet.has(f.hex)))]
-    : vis;
-
+  const toRender=selected?[...vis,...allList().filter(f=>f.id===selected&&!visSet.has(f.hex))]:vis;
   toRender.forEach(f=>{
-    const sel    = selected===f.id;
-    const dimmed = !!selected && !sel;   // dim all except selected when something is selected
-    const color  = sel?'#ffffff':(dimmed?'#2a2d42':(CAT[f.category]||CAT.unknown).color);
-    const sz     = sel?28:(dimmed?14:20);
-    const op     = dimmed?0.15:1;
-    const zi     = sel?2000:(dimmed?-200:0);
-
-    if(markers[f.hex]){
-      markers[f.hex].setLatLng([f.lat,f.lng]);
-      markers[f.hex].setIcon(planeIcon(f.hdg,color,sz,op));
-      markers[f.hex].options.zIndexOffset=zi;
-    } else {
-      const m=L.marker([f.lat,f.lng],{icon:planeIcon(f.hdg,color,sz,op),zIndexOffset:zi});
-      m.on('click',()=>selectFlight(f.id));
-      m.addTo(map);
-      markers[f.hex]=m;
+    const sel=selected===f.id,dimmed=!!selected&&!sel;
+    const color=sel?'#ffffff':(dimmed?'#252840':(CAT[f.category]||CAT.unknown).color);
+    const sz=sel?26:(dimmed?14:20),op=dimmed?0.15:1;
+    if(markers[f.hex]){markers[f.hex].setLatLng([f.lat,f.lng]);markers[f.hex].setIcon(planeIcon(f.hdg,color,sz,op));}
+    else{
+      const m=L.marker([f.lat,f.lng],{icon:planeIcon(f.hdg,color,sz,op),zIndexOffset:sel?2000:(dimmed?-200:0)});
+      m.on('click',()=>selectFlight(f.id));m.addTo(map);markers[f.hex]=m;
     }
     markers[f.hex].unbindTooltip();
     if(!dimmed||sel){
       const intel=INTEL_DB[(f.hex||'').toLowerCase()];
-      const tip=`<b>${f.id}</b>${intel?' 🔵 '+intel.agency:''}<br>${typeName(f.type)}<br>${f.alt?f.alt.toLocaleString()+' ft':'—'} · ${f.spd?f.spd+' kts':'—'}`;
-      markers[f.hex].bindTooltip(tip,{direction:'top',offset:[0,-8]});
+      markers[f.hex].bindTooltip(
+        `<b>${f.id}</b>${intel?' · 🔵 '+intel.agency:''}<br>${typeName(f.type)}<br>${f.alt?f.alt.toLocaleString()+' ft':'—'} · ${f.spd?f.spd+' kts':'—'}`,
+        {direction:'top',offset:[0,-8]}
+      );
     }
   });
 }
 
-/* ═══════════════════════════════════════════════
-   SELECT / DESELECT
-═══════════════════════════════════════════════ */
-// Route line + airport markers on map
-let routeLayer = null;
-
-function clearRoute(){
-  if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-}
-
-function drawRoute(f, route){
-  clearRoute();
-  if(!route) return;
-  const o=route.origin, d=route.destination, m=route.midpoint;
+/* ═══ ROUTE ON MAP ═════════════════════════════════════════════ */
+let routeLayer=null;
+function clearRoute(){if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}}
+function drawRoute(f,route){
+  clearRoute();if(!route)return;
+  const o=route.origin,d=route.destination,m=route.midpoint;
   const pts=[[o.latitude,o.longitude]];
-  if(m) pts.push([m.latitude,m.longitude]);
-  pts.push([f.lat,f.lng]); // current aircraft position
+  if(m)pts.push([m.latitude,m.longitude]);
+  pts.push([f.lat,f.lng]);
   pts.push([d.latitude,d.longitude]);
-
-  const cat=CAT[f.category]||CAT.unknown;
+  const color=(CAT[f.category]||CAT.unknown).color;
   routeLayer=L.layerGroup();
-
-  // Great-circle line
-  L.polyline(pts,{color:cat.color,weight:2,opacity:0.7,dashArray:'6,4'}).addTo(routeLayer);
-
-  // Origin airport marker
-  L.circleMarker([o.latitude,o.longitude],{
-    radius:7,color:cat.color,fillColor:cat.color,fillOpacity:0.9,weight:2
-  }).bindTooltip(`<b>🛫 ${o.iata_code||o.icao_code}</b><br>${o.name}<br>${o.municipality}, ${o.country_name}`,
-    {direction:'top'}).addTo(routeLayer);
-
-  // Destination airport marker
-  L.circleMarker([d.latitude,d.longitude],{
-    radius:7,color:'#ffffff',fillColor:'#ffffff',fillOpacity:0.9,weight:2
-  }).bindTooltip(`<b>🛬 ${d.iata_code||d.icao_code}</b><br>${d.name}<br>${d.municipality}, ${d.country_name}`,
-    {direction:'top'}).addTo(routeLayer);
-
-  // Midpoint if present
-  if(m){
-    L.circleMarker([m.latitude,m.longitude],{
-      radius:5,color:cat.color,fillColor:cat.color,fillOpacity:0.6,weight:1.5,dashArray:'3,2'
-    }).bindTooltip(`<b>⏩ ${m.iata_code||m.icao_code}</b><br>${m.name}`,{direction:'top'}).addTo(routeLayer);
-  }
-
+  L.polyline(pts,{color,weight:2,opacity:0.75,dashArray:'7,5'}).addTo(routeLayer);
+  L.circleMarker([o.latitude,o.longitude],{radius:6,color,fillColor:color,fillOpacity:1,weight:2})
+    .bindTooltip(`<b>🛫 ${o.iata_code||o.icao_code}</b><br>${o.name}<br>${o.municipality}, ${o.country_name}`,{direction:'top'}).addTo(routeLayer);
+  L.circleMarker([d.latitude,d.longitude],{radius:6,color:'#fff',fillColor:'#fff',fillOpacity:1,weight:2})
+    .bindTooltip(`<b>🛬 ${d.iata_code||d.icao_code}</b><br>${d.name}<br>${d.municipality}, ${d.country_name}`,{direction:'top'}).addTo(routeLayer);
+  if(m)L.circleMarker([m.latitude,m.longitude],{radius:4,color,fillColor:color,fillOpacity:0.6,weight:1.5})
+    .bindTooltip(`<b>⏩ ${m.iata_code||m.icao_code}</b><br>${m.name}`,{direction:'top'}).addTo(routeLayer);
   routeLayer.addTo(map);
 }
+function haverDist(a1,o1,a2,o2){
+  const R=3440.1,dA=(a2-a1)*Math.PI/180,dO=(o2-o1)*Math.PI/180;
+  return 2*R*Math.atan2(Math.sqrt(Math.sin(dA/2)**2+Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2),Math.sqrt(1-Math.sin(dA/2)**2-Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2));
+}
 
+/* ═══ ENRICHMENT ═══════════════════════════════════════════════ */
+async function enrichAircraft(hex,callsign){
+  if(!hex||hex==='—')return;
+  if(acCache[hex]&&acCache[hex]._done)return;
+  acCache[hex]={_done:false};
+  vlog('info',`Enriching ${hex} / ${callsign||'?'}`);
+  try{
+    const infoUrl=PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
+    const imgUrl=PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
+    const [ir,imgr]=await Promise.all([fetch(infoUrl).catch(()=>null),fetch(imgUrl).catch(()=>null)]);
+    if(ir&&ir.ok){
+      const d=await ir.json();
+      Object.assign(acCache[hex],{typeFull:d.Type||'',manufacturer:d.Manufacturer||'',owner:d.RegisteredOwners||'',reg:d.Registration||'',operator:d.OperatorFlagCode||''});
+      vlog('ok',`  hexdb: ${d.Type} / ${d.RegisteredOwners}`);
+    }else vlog('warn','  hexdb info failed');
+    if(imgr&&imgr.ok){const b=await imgr.blob();if(b.size>500){acCache[hex].photoUrl=URL.createObjectURL(b);vlog('ok','  Photo loaded');}}
+  }catch(e){vlog('error','  hexdb: '+e.message);}
+  if(callsign&&callsign.trim()&&callsign!=='?'){
+    try{
+      const cs=callsign.trim().toUpperCase();
+      const rUrl=PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
+      vlog('info','  adsbdb route for '+cs);
+      const rr=await fetch(rUrl);
+      if(rr.ok){
+        const rj=await rr.json();
+        const fr=rj?.response?.flightroute;
+        if(fr&&fr.origin&&fr.destination){
+          acCache[hex].route={origin:fr.origin,destination:fr.destination,midpoint:fr.midpoint||null,airline:fr.airline||null};
+          vlog('ok',`  Route: ${fr.origin.icao_code} → ${fr.destination.icao_code}`);
+        }else vlog('warn','  adsbdb: no route for '+cs);
+      }else vlog('warn','  adsbdb HTTP '+rr.status);
+    }catch(e){vlog('error','  adsbdb: '+e.message);}
+  }
+  acCache[hex]._done=true;
+}
+
+/* ═══ SELECT / DESELECT ════════════════════════════════════════ */
 async function selectFlight(id){
   if(selected===id){deselect();return;}
-  clearRoute();
-  selected=id; renderMap();
-  const f=allList().find(x=>x.id===id);
-  if(!f) return;
-
-  renderDetail(f); // show immediately with what we have
-  document.getElementById('detail').classList.add('on');
-
-  // Fly to aircraft
+  clearRoute();selected=id;renderMap();
+  const f=allList().find(x=>x.id===id);if(!f)return;
+  renderDetail(f);
   map.flyTo([f.lat,f.lng],7,{duration:1.0,easeLinearity:.5});
-
-  // Enrich (aircraft info + route) — then re-render
-  await enrichAircraft(f.hex, f.id);
+  await enrichAircraft(f.hex,f.id);
   if(selected===id){
     renderDetail(f);
-    const cached=acCache[f.hex]||{};
-    if(cached.route) drawRoute(f, cached.route);
+    const c=acCache[f.hex]||{};
+    if(c.route)drawRoute(f,c.route);
   }
 }
 function deselect(silent){
-  selected=null;
-  clearRoute();
+  selected=null;clearRoute();
   document.getElementById('detail').classList.remove('on');
   document.getElementById('fab').className='';
   renderMap();
-  if(!silent) fetchViewport(false);
+  if(!silent)fetchViewport(false);
 }
 
-/* ═══════════════════════════════════════════════
-   DETAIL PANEL — full aircraft details
-═══════════════════════════════════════════════ */
+/* ═══ DETAIL PANEL ═════════════════════════════════════════════ */
 function renderDetail(f){
-  if(!f) return;
-  const cat    = CAT[f.category]||CAT.unknown;
-  const intel  = INTEL_DB[(f.hex||'').toLowerCase()];
-  const sqSt   = squawkStatus(f.sqk, f.emergency);
-  const cached = acCache[f.hex]||{};
-  const fullType      = cached.typeFull || typeName(f.type);
-  const mfr           = cached.manufacturer || '';
-  const owner         = cached.owner || '';
-  const operator      = cached.operator || '';
-  const photoUrl      = cached.photoUrl;
-  const route         = cached.route || null;
+  if(!f)return;
+  const cat   = CAT[f.category]||CAT.unknown;
+  const intel = INTEL_DB[(f.hex||'').toLowerCase()];
+  const sqSt  = squawkStatus(f.sqk,f.emergency);
+  const c     = acCache[f.hex]||{};
+
+  // Resolved values — no abbreviations anywhere
+  const aircraftType  = c.typeFull || typeName(f.type);
+  const manufacturer  = c.manufacturer || '';
+  const registration  = (c.reg||f.reg||'—').trim();
+  const icao24        = (f.hex||'—').toLowerCase();
+  const owner         = c.owner || '';
+  const operatorCode  = c.operator || '';
+  const route         = c.route || null;
   const airline       = route?.airline || null;
-  // Operator: prefer airline name from route data, then ICAO flag code, then ADS-B country
-  const operatorLabel = airline?.name
-    ? `${airline.name}${airline.iata?' ('+airline.iata+')':''}`
-    : (operator ? operator : (f.country && f.country!=='—' ? f.country : '—'));
-  const ownerLabel    = owner || f.country || '—';
+  const operatorName  = airline?.name
+    ? `${airline.name}${airline.iata ? ' ('+airline.iata+')' : ''}`
+    : operatorCode || f.country || '—';
+  const ownerName     = owner || f.country || '—';
+  const photoUrl      = c.photoUrl;
+
+  // Flight phase — remove slash, write it out
+  const phase = f.phase || '—';
+  const altitude = f.alt ? f.alt.toLocaleString()+' ft' : '—';
+  const speed    = f.spd ? f.spd+' knots' : '—';
+  const heading  = f.hdg ? f.hdg+'°' : '—';
+  const vrate    = f.vrate ? (f.vrate>0?'+ ':'')+Math.round(Math.abs(f.vrate))+' ft/min '+(f.vrate>0?'climbing':'descending') : '— ft/min';
 
   let html = '';
 
-  // ── Status banner ───────────────────────────────
-  html += `<div class="status-banner ${sqSt.cls}">${sqSt.label} &nbsp;·&nbsp; ${sqSt.desc}</div>`;
-
-  // ── Header: callsign + category ─────────────────
-  html += `<div class="dtop">
-    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-      <div class="did">${f.id}</div>
-      <span class="ctag ct-${f.category}" style="font-size:10px;padding:2px 7px">${cat.label}</span>
-      ${intel?`<span style="font-size:10px;color:#e060e8">🔵 ${intel.agency}</span>`:''}
-    </div>
-    <button class="dclose" onclick="deselect()">×</button>
+  // ── Status row ──────────────────────────────────────────────
+  html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <span class="${sqSt.cls}">${sqSt.label}</span>
+    ${intel ? `<span class="intel-tag">🔵 ${intel.agency} — ${intel.country}</span>` : ''}
   </div>`;
 
-  // ── Aircraft card (photo + type info) ───────────
-  html += `<div class="ac-card">`;
+  // ── Header: callsign + type + close ─────────────────────────
+  html += `<div class="d-header">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="d-callsign">${f.id}</span>
+        <span class="ctag ct-${f.category}">${cat.label}</span>
+      </div>
+      <div class="d-subtitle">${aircraftType}${manufacturer ? ' · ' + manufacturer : ''}</div>
+    </div>
+    <button class="d-close" onclick="deselect()">✕</button>
+  </div>`;
+
+  // ── Two-column: photo + identity fields ─────────────────────
+  html += `<div class="d-body">`;
   if(photoUrl){
-    html += `<img class="ac-photo" src="${photoUrl}" alt="${f.type}" loading="lazy"/>`;
+    html += `<img class="d-photo" src="${photoUrl}" alt="${aircraftType}"/>`;
   } else {
-    html += `<div class="ac-photo-placeholder">✈</div>`;
+    html += `<div class="d-photo-ph">✈</div>`;
   }
-  html += `<div class="ac-info">
-    <div class="ac-type">${fullType}${mfr?' <span style=\"color:#6b6e8a;font-weight:400\">· '+mfr+'</span>':''}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin-top:3px">
-      <div>
-        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">Registration</div>
-        <div style="font-size:11px;color:#e0e2ee;font-family:monospace">${f.reg!=='—'?f.reg:'—'}</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">ICAO24</div>
-        <div style="font-size:11px;color:#e0e2ee;font-family:monospace">${f.hex!=='—'?f.hex:'—'}</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">Owner</div>
-        <div style="font-size:11px;color:#4fa8e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${ownerLabel}">${ownerLabel}</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">Operator</div>
-        <div style="font-size:11px;color:#7dd460;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${operatorLabel}">${operatorLabel}</div>
-      </div>
+  html += `<div class="d-fields">
+    <div class="d-field">
+      <div class="d-label">Registration</div>
+      <div class="d-value mono">${registration}</div>
+    </div>
+    <div class="d-field">
+      <div class="d-label">ICAO 24-bit address</div>
+      <div class="d-value mono">${icao24}</div>
+    </div>
+    <div class="d-field">
+      <div class="d-label">Registered owner</div>
+      <div class="d-value blue" title="${ownerName}">${ownerName}</div>
+    </div>
+    <div class="d-field">
+      <div class="d-label">Operator / Airline</div>
+      <div class="d-value green" title="${operatorName}">${operatorName}</div>
     </div>
   </div></div>`;
 
-  // ── Route: Origin → Destination ─────────────────
+  // ── Route bar ─────────────────────────────────────────────
   if(route){
-    const o=route.origin, d=route.destination;
-    html += `<div style="background:#0d0f18;border-radius:6px;border:1px solid #1e2130;padding:5px 10px;margin-bottom:5px;display:flex;align-items:center;gap:6px">
-      <div style="text-align:center;flex:1">
-        <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.1">${o.iata_code||o.icao_code}</div>
-        <div style="font-size:9px;color:#7dd460">🛫 ${o.municipality||o.country_name}</div>
+    const o=route.origin,d=route.destination;
+    let pct='';
+    try{
+      const tot=haverDist(o.latitude,o.longitude,d.latitude,d.longitude);
+      const fln=haverDist(o.latitude,o.longitude,f.lat,f.lng);
+      pct=Math.max(0,Math.min(100,Math.round(fln/tot*100)))+'% flown · '+Math.round(tot)+' nm total';
+    }catch(e){}
+    html += `<div class="d-route">
+      <div class="d-airport">
+        <div class="d-airport-code">${o.iata_code||o.icao_code}</div>
+        <div class="d-airport-name" style="color:#7dd460">🛫 ${o.municipality||o.country_name}</div>
+        <div class="d-airport-name">${o.name}</div>
       </div>
-      <div style="flex:1.2;text-align:center">
-        <div style="font-size:9px;color:#6b6e8a;line-height:1.4">${routeProgress(f,route)}</div>
-        <div style="height:1px;background:linear-gradient(90deg,#7dd460,#4fa8e8);margin:2px 0"></div>
-        ${route.midpoint?`<div style="font-size:9px;color:#e8a040">via ${route.midpoint.iata_code||route.midpoint.icao_code}</div>`:'<div style="font-size:9px;color:#3a3d52">direct</div>'}
+      <div class="d-route-mid">
+        <div class="d-route-pct">${pct}</div>
+        <div class="d-route-line"></div>
+        ${route.midpoint ? `<div class="d-route-via">via ${route.midpoint.iata_code||route.midpoint.icao_code}</div>` : '<div class="d-route-via" style="color:#3a3d52">direct</div>'}
       </div>
-      <div style="text-align:center;flex:1">
-        <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.1">${d.iata_code||d.icao_code}</div>
-        <div style="font-size:9px;color:#e85858">🛬 ${d.municipality||d.country_name}</div>
+      <div class="d-airport">
+        <div class="d-airport-code">${d.iata_code||d.icao_code}</div>
+        <div class="d-airport-name" style="color:#e85858">🛬 ${d.municipality||d.country_name}</div>
+        <div class="d-airport-name">${d.name}</div>
       </div>
     </div>`;
-  } else if(cached._done){
-    html += `<div style="font-size:10px;color:#45485e;padding:2px 0;margin-bottom:4px">No route data — military, charter or unknown callsign</div>`;
+  } else if(c._done){
+    html += `<div style="font-size:11px;color:#45485e;margin-top:6px;padding:5px 8px;background:#0d0f18;border-radius:6px;border:1px solid #1e2130">No route data available — military, charter or unscheduled flight</div>`;
   } else {
-    html += `<div style="font-size:10px;color:#e8a040;padding:2px 0;margin-bottom:4px">⏳ Loading route…</div>`;
+    html += `<div style="font-size:11px;color:#e8a040;margin-top:6px">⏳ Loading route information…</div>`;
   }
 
-  // ── Flight data grid ─────────────────────────────
-  html += `<div class="dgrid">
-    <div class="dm"><div class="dml">Alt</div><div class="dmv">${f.alt?f.alt.toLocaleString()+' ft':'—'}</div></div>
-    <div class="dm"><div class="dml">Speed</div><div class="dmv">${f.spd?f.spd+' kts':'—'}</div></div>
-    <div class="dm"><div class="dml">Hdg</div><div class="dmv">${f.hdg}°</div></div>
-    <div class="dm"><div class="dml">V/rate</div><div class="dmv">${f.vrate?(f.vrate>0?'+':'')+Math.round(f.vrate)+' fpm':'—'}</div></div>
-    <div class="dm"><div class="dml">Phase</div><div class="dmv">${f.phase}</div></div>
-    <div class="dm"><div class="dml">Squawk</div><div class="dmv" style="font-family:monospace">${f.sqk}</div></div>
+  // ── Flight stats grid ──────────────────────────────────────
+  html += `<div class="d-stats">
+    <div class="d-stat">
+      <div class="d-stat-label">Altitude</div>
+      <div class="d-stat-value">${altitude}</div>
+    </div>
+    <div class="d-stat">
+      <div class="d-stat-label">Ground speed</div>
+      <div class="d-stat-value">${speed}</div>
+    </div>
+    <div class="d-stat">
+      <div class="d-stat-label">True heading</div>
+      <div class="d-stat-value">${heading}</div>
+    </div>
+    <div class="d-stat">
+      <div class="d-stat-label">Vertical rate</div>
+      <div class="d-stat-value" style="font-size:11px">${vrate}</div>
+    </div>
+    <div class="d-stat">
+      <div class="d-stat-label">Flight phase</div>
+      <div class="d-stat-value" style="font-size:11px">${phase}</div>
+    </div>
+    <div class="d-stat">
+      <div class="d-stat-label">Squawk code</div>
+      <div class="d-stat-value mono">${f.sqk}</div>
+    </div>
   </div>`;
 
-  // ── Honest disclaimer ────────────────────────────
+  // Intel note if applicable
+  if(intel){
+    html += `<div style="font-size:10px;color:#e060e8;margin-top:6px;padding:5px 10px;background:#160820;border:1px solid #700880;border-radius:6px">
+      🔵 <b>${intel.agency}</b> · ${intel.country} — ${intel.note}
+    </div>`;
+  }
 
-
-  document.getElementById('detail-content').innerHTML = html;
+  document.getElementById('detail-inner').innerHTML = html;
   document.getElementById('detail').classList.add('on');
 }
 
-function routeProgress(f, route){
-  if(!route) return '';
-  // Rough % estimate using distance ratios
-  try {
-    const o=route.origin, d=route.destination;
-    const totalDist=haverDist(o.latitude,o.longitude,d.latitude,d.longitude);
-    const flownDist=haverDist(o.latitude,o.longitude,f.lat,f.lng);
-    const pct=Math.max(0,Math.min(100,Math.round(flownDist/totalDist*100)));
-    return `~${pct}% flown · ${Math.round(totalDist)} nm`;
-  } catch(e){ return ''; }
-}
-
-function haverDist(lat1,lon1,lat2,lon2){
-  const R=3440.1, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-/* ═══════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════ */
-function ring(on){document.getElementById('fetchring').className=on?'on':'';}
-function setStatus(t,msg){const el=document.getElementById('smsg');el.textContent=msg;el.className='s-'+t;}
-function startAutoRefresh(){
-  clearInterval(autoTimer);
-  autoTimer=setInterval(()=>{if(!selected&&!isFetching)fetchViewport(false);},20000);
-}
-
-/* ═══════════════════════════════════════════════
-   LOG PANEL TOGGLE
-═══════════════════════════════════════════════ */
-function toggleLog(){
-  const p=document.getElementById('logpanel');
-  const b=document.getElementById('logbtn');
-  p.classList.toggle('hidden');
-  b.style.color=p.classList.contains('hidden')?'#6b6e8a':'#4fa8e8';
-  // Refresh log content when opening
-  if(!p.classList.contains('hidden')){
-    p.querySelector('#loglines').innerHTML=
-      logLines.map(l=>{
-        const col=l.includes('ERROR')||l.includes('FAIL')?'#e85858'
-                 :l.includes('OK')||l.includes('SUCCESS')?'#7dd460'
-                 :l.includes('WARN')?'#e8a040':'#aab0c8';
-        return `<div style="color:${col}">${l}</div>`;
-      }).join('');
-  }
-}
-
-/* ═══════════════════════════════════════════════
-   NO-FLY ZONES
-   Sources: ICAO NOTAMs, FAA TFRs, public data
-═══════════════════════════════════════════════ */
-const NFZ = [
-  // ── Active conflict zones ──────────────────
-  {name:'Ukraine airspace (UKFV/UKDV)',  reason:'Active armed conflict — all civil aviation banned since Feb 2022',
-   color:'#e85858', latlngs:[[52.3,22.1],[52.3,40.2],[44.4,40.2],[44.4,22.1]]},
-  {name:'Belarus airspace (UMMV)',        reason:'EU/ICAO advisory — political and safety concerns since 2021',
-   color:'#e85858', latlngs:[[56.2,23.7],[56.2,32.8],[51.2,32.8],[51.2,23.7]]},
-  {name:'Russian airspace (UUWV/URRV)',   reason:'Closed to most western carriers — retaliation for Ukraine sanctions',
-   color:'#e85858', latlngs:[[72,27],[72,180],[42,180],[42,27]]},
-  {name:'Iran airspace (OIIX)',           reason:'Periodic closures for missile activity; ICAO safety advisory',
-   color:'#e8a040', latlngs:[[39.8,44.0],[39.8,63.3],[25.1,63.3],[25.1,44.0]]},
-  {name:'Iraq northern airspace (ORBB)',  reason:'Military operations — restricted altitude bands',
-   color:'#e8a040', latlngs:[[37.4,38.8],[37.4,48.6],[33.0,48.6],[33.0,38.8]]},
-  {name:'Yemen airspace (OYSC)',          reason:'Active conflict — ICAO prohibits civil operations below FL150',
-   color:'#e85858', latlngs:[[19.0,41.5],[19.0,55.7],[11.0,55.7],[11.0,41.5]]},
-  {name:'Libya airspace (HLLL)',          reason:'Active conflict zones — civil aviation restricted',
-   color:'#e85858', latlngs:[[33.2,9.4],[33.2,25.2],[19.5,25.2],[19.5,9.4]]},
-  {name:'Sudan airspace (HSSS)',          reason:'Armed conflict 2023 — ICAO safety advisory',
-   color:'#e85858', latlngs:[[22.2,21.8],[22.2,38.6],[9.4,38.6],[9.4,21.8]]},
-  {name:'North Korea airspace (ZKKP)',    reason:'Prohibited to all foreign civil aviation',
-   color:'#e060e8', latlngs:[[43.0,124.2],[43.0,130.7],[37.7,130.7],[37.7,124.2]]},
-  {name:'Gaza / Southern Israel (LLLL)',  reason:'Active conflict TFR — civil aviation restricted',
-   color:'#e85858', latlngs:[[31.9,34.2],[31.9,34.9],[31.2,34.9],[31.2,34.2]]},
-  // ── Restricted airspace / special use ─────
-  {name:'Washington DC ADIZ (P-56)',      reason:'Presidential restricted airspace (P-56A/B) — no unauthorised flight',
-   color:'#e8a040', latlngs:[[38.95,-77.12],[38.95,-76.98],[38.82,-76.98],[38.82,-77.12]]},
-  {name:'Area 51 / Groom Lake (R-4808)',  reason:'US military restricted airspace — R-4808N, no civil flight',
-   color:'#e8a040', latlngs:[[37.35,-116.05],[37.35,-115.65],[37.1,-115.65],[37.1,-116.05]]},
-  {name:'Buckingham Palace TFR',          reason:'Temporary restricted airspace over Royal residences',
-   color:'#e8a040', latlngs:[[51.52,-0.16],[51.52,-0.11],[51.49,-0.11],[51.49,-0.16]]},
+/* ═══ NO-FLY ZONES ═════════════════════════════════════════════ */
+const NFZ=[
+  {name:'Ukraine airspace',reason:'Active armed conflict — civil aviation banned since February 2022',color:'#e85858',latlngs:[[52.3,22.1],[52.3,40.2],[44.4,40.2],[44.4,22.1]]},
+  {name:'Belarus airspace',reason:'EU/ICAO advisory — political and safety concerns since 2021',color:'#e85858',latlngs:[[56.2,23.7],[56.2,32.8],[51.2,32.8],[51.2,23.7]]},
+  {name:'Russian airspace',reason:'Closed to most western carriers following Ukraine sanctions',color:'#e85858',latlngs:[[72,27],[72,180],[42,180],[42,27]]},
+  {name:'Iran airspace',reason:'Periodic closures for missile activity; ICAO safety advisory active',color:'#e8a040',latlngs:[[39.8,44.0],[39.8,63.3],[25.1,63.3],[25.1,44.0]]},
+  {name:'Yemen airspace',reason:'Active armed conflict — civil aviation restricted below FL150',color:'#e85858',latlngs:[[19.0,41.5],[19.0,55.7],[11.0,55.7],[11.0,41.5]]},
+  {name:'Libya airspace',reason:'Active conflict zones — civil aviation restricted',color:'#e85858',latlngs:[[33.2,9.4],[33.2,25.2],[19.5,25.2],[19.5,9.4]]},
+  {name:'Sudan airspace',reason:'Armed conflict since 2023 — ICAO safety advisory',color:'#e85858',latlngs:[[22.2,21.8],[22.2,38.6],[9.4,38.6],[9.4,21.8]]},
+  {name:'North Korea airspace',reason:'Permanently prohibited to all foreign civil aviation',color:'#e060e8',latlngs:[[43.0,124.2],[43.0,130.7],[37.7,130.7],[37.7,124.2]]},
+  {name:'Gaza / Southern Israel',reason:'Active conflict TFR — civil aviation restricted',color:'#e85858',latlngs:[[31.9,34.2],[31.9,34.9],[31.2,34.9],[31.2,34.2]]},
+  {name:'Washington DC P-56',reason:'Presidential restricted airspace — no unauthorised flight',color:'#e8a040',latlngs:[[38.95,-77.12],[38.95,-76.98],[38.82,-76.98],[38.82,-77.12]]},
+  {name:'Area 51 / Groom Lake R-4808',reason:'US military restricted airspace — no civil flight permitted',color:'#e8a040',latlngs:[[37.35,-116.05],[37.35,-115.65],[37.1,-115.65],[37.1,-116.05]]},
 ];
-
-const nfzLayers = [];
+const nfzLayers=[];
 function drawNFZ(){
   NFZ.forEach(z=>{
-    const poly = L.polygon(z.latlngs, {
-      color: z.color, fillColor: z.color,
-      weight:1.5, opacity:0.9, fillOpacity:0.08,
-      dashArray:'6,4',
-    });
-    poly.bindTooltip(
-      `<b>${z.name}</b><br><span style="color:#e8a040">⚠ Restricted</span><br>${z.reason}`,
-      {sticky:true, direction:'top'}
-    );
-    poly.addTo(map);
-    nfzLayers.push(poly);
+    const p=L.polygon(z.latlngs,{color:z.color,fillColor:z.color,weight:1.5,opacity:0.9,fillOpacity:0.07,dashArray:'6,4'});
+    p.bindTooltip(`<b>${z.name}</b><br><span style="color:#e8a040">⚠ Restricted airspace</span><br>${z.reason}`,{sticky:true,direction:'top'});
+    p.addTo(map);nfzLayers.push(p);
   });
-  vlog('ok',`Drew ${NFZ.length} no-fly zones`);
 }
-
-// Add NFZ toggle button to map
-const nfzBtn = document.createElement('button');
-nfzBtn.id='nfzbtn';
-nfzBtn.title='Toggle no-fly zones';
-nfzBtn.textContent='🚫 NFZ';
-nfzBtn.style.cssText=`position:absolute;top:44px;right:10px;z-index:1000;
-  background:rgba(20,23,32,.88);color:#e85858;border:1px solid #882020;
-  border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;
-  font-family:inherit;backdrop-filter:blur(4px);`;
-let nfzVisible=true;
 nfzBtn.onclick=()=>{
   nfzVisible=!nfzVisible;
   nfzLayers.forEach(l=>nfzVisible?map.addLayer(l):map.removeLayer(l));
   nfzBtn.style.color=nfzVisible?'#e85858':'#6b6e8a';
   nfzBtn.style.borderColor=nfzVisible?'#882020':'#232636';
 };
-document.getElementById('map').appendChild(nfzBtn);
 
-fetchViewport(true).then(()=>{ drawNFZ(); startAutoRefresh(); });
+/* ═══ LOG ══════════════════════════════════════════════════════ */
+const logLines=[];
+function vlog(level,msg){
+  const t=new Date().toLocaleTimeString();
+  const line=`[${t}] ${level.toUpperCase()}: ${msg}`;
+  console.log(line);logLines.unshift(line);if(logLines.length>50)logLines.pop();
+  const el=document.getElementById('logpanel');
+  if(el&&!el.classList.contains('hidden')){
+    el.querySelector('#loglines').innerHTML=logLines.map(l=>{
+      const col=l.includes('ERROR')||l.includes('FAIL')?'#e85858':l.includes('OK')||l.includes('SUCCESS')?'#7dd460':l.includes('WARN')?'#e8a040':'#aab0c8';
+      return `<div style="color:${col}">${l}</div>`;
+    }).join('');
+  }
+}
+function toggleLog(){
+  const p=document.getElementById('logpanel'),b=document.getElementById('logbtn');
+  p.classList.toggle('hidden');
+  b.style.color=p.classList.contains('hidden')?'#6b6e8a':'#4fa8e8';
+  if(!p.classList.contains('hidden'))p.querySelector('#loglines').innerHTML=logLines.map(l=>{
+    const col=l.includes('ERROR')||l.includes('FAIL')?'#e85858':l.includes('OK')||l.includes('SUCCESS')?'#7dd460':l.includes('WARN')?'#e8a040':'#aab0c8';
+    return `<div style="color:${col}">${l}</div>`;
+  }).join('');
+}
+
+/* ═══ HELPERS ══════════════════════════════════════════════════ */
+function ring(on){document.getElementById('fetchring').className=on?'on':'';}
+function setStatus(t,msg){const el=document.getElementById('smsg');el.textContent=msg;el.className='s-'+t;}
+function startAutoRefresh(){
+  clearInterval(autoTimer);
+  autoTimer=setInterval(()=>{if(!isFetching)fetchViewport(false);},20000);
+}
+
+/* ═══ INIT ═════════════════════════════════════════════════════ */
+fetchViewport(true).then(()=>{drawNFZ();startAutoRefresh();});
 </script>
 </body>
 </html>
