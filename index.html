@@ -37,35 +37,35 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #fab{display:none;position:absolute;bottom:56px;right:12px;z-index:1001;background:#4fa8e8;color:#fff;border:none;border-radius:18px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer}
 #fab.on{display:block}
 /* ── DETAIL PANEL ── */
-#detail{position:absolute;bottom:0;left:0;right:0;background:#141720;border-top:1px solid #232636;border-radius:12px 12px 0 0;padding:0 0 22px;z-index:1000;transform:translateY(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);max-height:70vh;overflow-y:auto}
+#detail{position:absolute;bottom:0;left:0;right:0;background:#141720;border-top:1px solid #232636;border-radius:12px 12px 0 0;padding:0 0 8px;z-index:1000;transform:translateY(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);height:20vh;min-height:160px;max-height:20vh;overflow-y:auto}
 #detail.on{transform:translateY(0)}
-.dh{width:30px;height:3px;background:#2a2d42;border-radius:2px;margin:10px auto 0}
-#detail-content{padding:10px 14px 0}
-.dtop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.dh{width:30px;height:3px;background:#2a2d42;border-radius:2px;margin:5px auto 0}
+#detail-content{padding:6px 12px 0}
+.dtop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
 .did{font-size:20px;font-weight:700;color:#fff}
 .dsub{font-size:11px;color:#6b6e8a;margin-top:2px}
 .dclose{background:none;border:none;color:#6b6e8a;font-size:20px;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
 /* aircraft card with photo */
-.ac-card{display:flex;gap:12px;background:#0d0f18;border-radius:8px;border:1px solid #1e2130;padding:10px;margin-bottom:10px;align-items:flex-start}
-.ac-photo{width:80px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #232636;background:#1a1d2e;flex-shrink:0}
-.ac-photo-placeholder{width:80px;height:56px;border-radius:6px;border:1px solid #232636;background:#1a1d2e;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;color:#3a3d52}
+.ac-card{display:flex;gap:8px;background:#0d0f18;border-radius:6px;border:1px solid #1e2130;padding:5px 8px;margin-bottom:5px;align-items:center}
+.ac-photo{width:60px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #232636;background:#1a1d2e;flex-shrink:0}
+.ac-photo-placeholder{width:60px;height:40px;border-radius:4px;border:1px solid #232636;background:#1a1d2e;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:#3a3d52}
 .ac-info{flex:1;min-width:0}
 .ac-type{font-size:14px;font-weight:600;color:#e0e2ee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ac-reg{font-size:11px;color:#6b6e8a}
 .ac-owner{font-size:11px;color:#6b6e8a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* status banner */
-.status-banner{border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.status-banner{border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:5px}
 .sq-normal  {background:#111e0e;color:#7dd460;border:1px solid #4a8830}
 .sq-emerg   {background:#2e0404;color:#ff4444;border:1px solid #882020;animation:pulse 1s infinite}
 .sq-hijack  {background:#2e1a04;color:#ff9900;border:1px solid #885010;animation:pulse 1s infinite}
 .sq-radio   {background:#1a1a2e;color:#a090f0;border:1px solid #5040a0}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 /* intel badge */
-.intel-badge{display:inline-flex;align-items:center;gap:5px;background:#200828;border:1px solid #801890;border-radius:7px;padding:4px 10px;font-size:11px;color:#e060e8;font-weight:500;margin-bottom:8px}
-.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
-.dm{background:#0d0f18;border-radius:7px;padding:8px 10px;border:1px solid #1e2130}
-.dml{font-size:10px;color:#45485e;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em}
-.dmv{font-size:13px;font-weight:600;color:#e0e2ee;word-break:break-all}
+.intel-badge{display:inline-flex;align-items:center;gap:5px;background:#200828;border:1px solid #801890;border-radius:6px;padding:2px 8px;font-size:11px;color:#e060e8;font-weight:500;margin-bottom:4px}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px}
+.dm{background:#0d0f18;border-radius:6px;padding:4px 8px;border:1px solid #1e2130}
+.dml{font-size:9px;color:#45485e;margin-bottom:1px;text-transform:uppercase;letter-spacing:.05em}
+.dmv{font-size:12px;font-weight:600;color:#e0e2ee;word-break:break-all}
 .ctag{font-size:11px;padding:3px 9px;border-radius:9px;font-weight:500;white-space:nowrap;border:1px solid}
 .ct-commercial{color:#7dd460;background:#111e0e;border-color:#4a8830}
 .ct-private    {color:#a090f0;background:#131028;border-color:#5040a0}
@@ -364,9 +364,9 @@ layerBtn.onclick = () => {
 document.getElementById('map').appendChild(layerBtn);
 
 map.on('moveend zoomend',()=>{
-  if(selected) return;
+  // Always fetch on move — route line will remain, just refresh plane data
   clearTimeout(moveTimer);
-  moveTimer=setTimeout(()=>fetchViewport(false),700);
+  moveTimer=setTimeout(()=>fetchViewport(false),500);
 });
 
 /* ═══════════════════════════════════════════════
@@ -391,29 +391,63 @@ function planeIcon(hdg,color,sz,op){
    HEXDB.IO ENRICHMENT  (type, owner, photo)
    Free, no key, CORS-open
 ═══════════════════════════════════════════════ */
-async function enrichAircraft(hex) {
-  if (!hex || hex==='—' || acCache[hex]) return;
-  acCache[hex] = {}; // mark as fetching to avoid duplicate calls
+async function enrichAircraft(hex, callsign) {
+  if (!hex || hex==='—') return;
+  if (acCache[hex] && acCache[hex]._done) return;
+  acCache[hex] = {_done:false};
+  vlog('info', `Enriching hex=${hex} callsign=${callsign||'?'}`);
   try {
+    // 1. Aircraft info + photo from hexdb.io (via proxy for github.io)
+    const infoUrl  = PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
+    const imgUrl   = PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
     const [infoRes, imgRes] = await Promise.all([
-      fetch(`https://hexdb.io/api/v1/aircraft/${hex}`),
-      fetch(`https://hexdb.io/hex-image-thumb?hex=${hex}`)
+      fetch(infoUrl).catch(()=>null),
+      fetch(imgUrl).catch(()=>null)
     ]);
-    if (infoRes.ok) {
+    if (infoRes && infoRes.ok) {
       const d = await infoRes.json();
-      acCache[hex] = {
+      Object.assign(acCache[hex], {
         typeFull: d.Type || '',
         manufacturer: d.Manufacturer || '',
         owner: d.RegisteredOwners || '',
         reg: d.Registration || '',
         operator: d.OperatorFlagCode || '',
-      };
-    }
-    if (imgRes.ok) {
+      });
+      vlog('ok', `  hexdb: ${d.Type} / ${d.RegisteredOwners}`);
+    } else { vlog('warn','  hexdb aircraft info failed'); }
+    if (imgRes && imgRes.ok) {
       const blob = await imgRes.blob();
-      if (blob.size > 500) acCache[hex].photoUrl = URL.createObjectURL(blob);
+      if (blob.size > 500) {
+        acCache[hex].photoUrl = URL.createObjectURL(blob);
+        vlog('ok','  Photo loaded');
+      }
     }
-  } catch(e) { /* silent */ }
+  } catch(e) { vlog('error','  hexdb fetch error: '+e.message); }
+
+  // 2. Route (origin+destination) from adsbdb.com
+  if (callsign && callsign.trim() && callsign !== '?') {
+    try {
+      const cs = callsign.trim().toUpperCase();
+      const routeUrl = PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
+      vlog('info', `  adsbdb route for callsign=${cs}`);
+      const rRes = await fetch(routeUrl);
+      if (rRes.ok) {
+        const rj = await rRes.json();
+        const fr = rj?.response?.flightroute;
+        if (fr && fr.origin && fr.destination) {
+          acCache[hex].route = {
+            origin:      fr.origin,
+            destination: fr.destination,
+            midpoint:    fr.midpoint || null,
+            airline:     fr.airline  || null,
+          };
+          vlog('ok', `  Route: ${fr.origin.icao_code} → ${fr.destination.icao_code}`);
+        } else { vlog('warn','  adsbdb: no route data for '+cs); }
+      } else { vlog('warn','  adsbdb HTTP '+rRes.status); }
+    } catch(e) { vlog('error','  adsbdb error: '+e.message); }
+  }
+
+  acCache[hex]._done = true;
 }
 
 /* ═══════════════════════════════════════════════
@@ -443,77 +477,158 @@ function vlog(level, msg) {
 }
 
 /* ═══════════════════════════════════════════════
-   API SOURCES + CORS PROXY
-   corsproxy.io explicitly supports github.io origins (free tier)
-   Syntax: https://corsproxy.io/?url=<encoded-target>
+   API SOURCES + MULTI-PROXY FALLBACK
+   Strategy:
+   1. Try direct (no proxy) — fastest, works if API has open CORS
+   2. Try corsproxy.io — explicitly supports github.io free tier
+   3. Try allorigins.win — secondary free proxy
+   4. Try thingproxy.freeboard.io — tertiary fallback
 ═══════════════════════════════════════════════ */
-const PROXY = 'https://corsproxy.io/?url=';
 
-// Direct URLs (work if API has CORS headers — try first, faster)
-// Proxied fallback for github.io where direct calls fail
-const API_SOURCES = [
-  { name:'adsb.lol (direct)',   base:'https://api.adsb.lol',           proxy:false },
-  { name:'adsb.one (direct)',   base:'https://api.adsb.one',           proxy:false },
-  { name:'airplanes.live (direct)', base:'https://api.airplanes.live', proxy:false },
-  { name:'adsb.fi (direct)',    base:'https://opendata.adsb.fi/api',   proxy:false },
-  { name:'adsb.lol (proxied)',  base:'https://api.adsb.lol',           proxy:true  },
-  { name:'adsb.one (proxied)',  base:'https://api.adsb.one',           proxy:true  },
-  { name:'airplanes.live (proxied)', base:'https://api.airplanes.live',proxy:true  },
-  { name:'adsb.fi (proxied)',   base:'https://opendata.adsb.fi/api',   proxy:true  },
+// CORS proxies tried in order when direct fails
+const PROXIES = [
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://thingproxy.freeboard.io/fetch/${url}`,
 ];
 
-function viewRadius(){
-  const b=map.getBounds(),c=map.getCenter(),ne=b.getNorthEast();
-  const R=6371,dLat=(ne.lat-c.lat)*Math.PI/180,dLon=(ne.lng-c.lng)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(c.lat*Math.PI/180)*Math.cos(ne.lat*Math.PI/180)*Math.sin(dLon/2)**2;
-  return Math.min(Math.round(2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))*0.54),250);
+// API bases — all serve ADSBx v2 JSON
+const API_BASES = [
+  { name:'adsb.lol',        base:'https://api.adsb.lol'         },
+  { name:'adsb.one',        base:'https://api.adsb.one'         },
+  { name:'airplanes.live',  base:'https://api.airplanes.live'   },
+  { name:'adsb.fi',         base:'https://opendata.adsb.fi/api' },
+];
+
+// Build direct URL for a base + lat/lon/dist
+function directUrl(base, lat, lon, dist) {
+  return `${base}/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
 }
 
-function buildUrl(src, lat, lon, dist) {
-  const direct = `${src.base}/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
-  return src.proxy ? `${PROXY}${encodeURIComponent(direct)}` : direct;
+// Try fetching a URL directly first, then through proxies
+async function fetchWithFallback(directURL, label, timeoutMs=10000) {
+  // Attempt 1: direct
+  const d = await _rawFetch(directURL, label+' direct', timeoutMs);
+  if (d !== null) return d;
+  // Attempts 2+: proxies
+  for (let i=0; i<PROXIES.length; i++) {
+    const proxied = PROXIES[i](directURL);
+    const r = await _rawFetch(proxied, `${label} proxy${i+1}`, timeoutMs);
+    if (r !== null) return r;
+  }
+  return null;
 }
 
-async function tryFetch(url, label) {
+async function _rawFetch(url, label, timeoutMs) {
   const ctrl = new AbortController();
-  const tid  = setTimeout(()=>ctrl.abort(), 12000);
+  const tid  = setTimeout(()=>ctrl.abort(), timeoutMs);
   try {
-    vlog('info', `Trying ${label} …`);
-    const res = await fetch(url, {signal:ctrl.signal, mode:'cors'});
+    const res = await fetch(url, {signal:ctrl.signal});
     clearTimeout(tid);
-    vlog('info', `  → HTTP ${res.status} ${res.statusText}`);
-    if (!res.ok) { vlog('warn', `  → Non-OK status, skipping`); return null; }
+    if (!res.ok) {
+      vlog('warn', `${label} → HTTP ${res.status}`);
+      return null;
+    }
     const j = await res.json();
     if (j && Array.isArray(j.ac)) {
-      vlog('ok', `  → SUCCESS: ${j.ac.length} aircraft from ${label}`);
+      vlog('ok', `${label} → ${j.ac.length} ac`);
       return j;
     }
-    vlog('warn', `  → No ac[] array in response`);
+    // allorigins wraps in {contents:"..."}
+    if (j && j.contents) {
+      try {
+        const inner = JSON.parse(j.contents);
+        if (inner && Array.isArray(inner.ac)) {
+          vlog('ok', `${label} (unwrapped) → ${inner.ac.length} ac`);
+          return inner;
+        }
+      } catch(e2){}
+    }
+    vlog('warn', `${label} → no ac[] in response`);
     return null;
   } catch(e) {
     clearTimeout(tid);
-    const reason = e.name==='AbortError' ? 'TIMEOUT (12s)' : e.message;
-    vlog('error', `  → FAIL: ${reason}`);
+    vlog('warn', `${label} → ${e.name==='AbortError'?'timeout':e.message}`);
     return null;
   }
 }
 
+// Probe to find fastest working API+proxy combo
 async function probeApis() {
   const c = map.getCenter();
   const lat = c.lat.toFixed(2), lon = c.lng.toFixed(2);
-  vlog('info', `Probing ${API_SOURCES.length} API endpoints for lat=${lat} lon=${lon} dist=25nm`);
-  for (const src of API_SOURCES) {
-    const url = buildUrl(src, lat, lon, 25);
-    const j = await tryFetch(url, src.name);
-    if (j !== null) {
-      workingApi = src;
-      vlog('ok', `Working API locked: ${src.name}`);
-      return src;
+  vlog('info', `Probing APIs for lat=${lat} lon=${lon}`);
+  for (const src of API_BASES) {
+    const url = directUrl(src.base, lat, lon, 50);
+    // Quick direct probe first (2s timeout)
+    const d = await _rawFetch(url, src.name+' direct', 2000);
+    if (d !== null) {
+      workingApi = {...src, useProxy: false};
+      vlog('ok', `Working API (direct): ${src.name}`);
+      return workingApi;
+    }
+    // Try proxies (5s each)
+    for (let i=0; i<PROXIES.length; i++) {
+      const r = await _rawFetch(PROXIES[i](url), `${src.name} proxy${i+1}`, 5000);
+      if (r !== null) {
+        workingApi = {...src, useProxy: true, proxyIdx: i};
+        vlog('ok', `Working API: ${src.name} via proxy${i+1}`);
+        return workingApi;
+      }
     }
   }
-  vlog('error', 'ALL APIs failed — falling back to demo data');
+  vlog('error', 'ALL APIs failed');
   return null;
 }
+
+// Build fetch URL for the working API
+function buildUrl(lat, lon, dist) {
+  const base = workingApi.base;
+  const direct = directUrl(base, lat, lon, dist);
+  if (!workingApi.useProxy) return direct;
+  return PROXIES[workingApi.proxyIdx||0](direct);
+}
+
+/* ═══════════════════════════════════════════════
+   VIEWPORT TILING
+   API max = 250 NM per query. When viewport is wider,
+   we tile it with a grid of 250 NM circles.
+═══════════════════════════════════════════════ */
+const QUERY_RADIUS_NM = 250; // hard API limit
+const QUERY_RADIUS_KM = QUERY_RADIUS_NM * 1.852; // ~463 km
+const QUERY_RADIUS_DEG = QUERY_RADIUS_KM / 111;   // ~4.17°
+
+function getViewportTiles() {
+  const b   = map.getBounds().pad(0.05);
+  const minLat = Math.max(b.getSouth(), -85);
+  const maxLat = Math.min(b.getNorth(),  85);
+  const minLon = b.getWest();
+  const maxLon = b.getEast();
+
+  const stepDeg = QUERY_RADIUS_DEG * 1.6; // overlap ~60% so no gaps
+  const tiles = [];
+
+  for (let lat = minLat + stepDeg/2; lat < maxLat + stepDeg/2; lat += stepDeg) {
+    const clampedLat = Math.max(minLat, Math.min(maxLat, lat));
+    // Longitude step adjusts for latitude (mercator correction)
+    const lonStep = stepDeg / Math.max(0.1, Math.cos(clampedLat * Math.PI/180));
+    for (let lon = minLon + lonStep/2; lon < maxLon + lonStep/2; lon += lonStep) {
+      tiles.push({
+        lat: clampedLat.toFixed(3),
+        lon: Math.max(minLon, Math.min(maxLon, lon)).toFixed(3)
+      });
+    }
+  }
+
+  // Always include viewport centre as a tile
+  const c = map.getCenter();
+  tiles.unshift({lat: c.lat.toFixed(3), lon: c.lng.toFixed(3)});
+
+  vlog('info', `Viewport: ${(maxLat-minLat).toFixed(1)}°lat × ${(maxLon-minLon).toFixed(1)}°lon → ${tiles.length} tile(s)`);
+  return tiles;
+}
+
+
 
 function parseV2(ac){
   return ac.filter(a=>a.lat!=null&&a.lon!=null&&a.alt_baro!=='ground'&&a.alt_baro!=null)
@@ -537,15 +652,17 @@ function parseV2(ac){
 }
 
 /* ═══════════════════════════════════════════════
-   MAIN FETCH
+   MAIN FETCH — viewport-tiled, covers full map view
 ═══════════════════════════════════════════════ */
 async function fetchViewport(manual){
   if(isFetching&&!manual) return;
   isFetching=true; ring(true);
   if(manual) document.getElementById('rbtn').classList.add('spin');
   setStatus('load','Loading…');
+
+  // Probe for working API if not cached
   if(!workingApi){
-    vlog('info','No working API cached — probing…');
+    vlog('info','No working API — probing…');
     await probeApis();
   }
   if(!workingApi){
@@ -556,28 +673,67 @@ async function fetchViewport(manual){
     document.getElementById('rbtn').classList.remove('spin');
     renderMap(); return;
   }
-  const c=map.getCenter(), dist=viewRadius();
-  const url=buildUrl(workingApi, c.lat.toFixed(3), c.lng.toFixed(3), dist);
-  vlog('info',`Fetching viewport: ${workingApi.name} dist=${dist}nm`);
-  const json=await tryFetch(url, workingApi.name);
-  if(json!==null){
-    const fresh=parseV2(json.ac);
-    const freshSet=new Set(fresh.map(f=>f.hex));
-    fresh.forEach(f=>{flightMap[f.hex]=f;});
-    const bounds=map.getBounds().pad(0.3);
-    let pruned=0;
+
+  // Get all tile query points covering current viewport
+  const tiles = getViewportTiles();
+
+  // Fetch all tiles in parallel (each is a 250nm circle)
+  setStatus('load', `Fetching ${tiles.length} tile(s) via ${workingApi.name}…`);
+  const tilePromises = tiles.map(t =>
+    _rawFetch(
+      buildUrl(t.lat, t.lon, QUERY_RADIUS_NM),
+      `${workingApi.name} [${t.lat},${t.lon}]`,
+      10000
+    )
+  );
+  const tileResults = await Promise.all(tilePromises);
+
+  // Deduplicate by hex across all tiles
+  const seenHex = new Set();
+  const allAc   = [];
+  let tileCount = 0;
+  tileResults.forEach(j => {
+    if (!j) return;
+    tileCount++;
+    (j.ac||[]).forEach(a => {
+      if (a.hex && !seenHex.has(a.hex)) {
+        seenHex.add(a.hex);
+        allAc.push(a);
+      }
+    });
+  });
+
+  if(tileCount > 0){
+    const fresh    = parseV2(allAc);
+    const freshSet = new Set(fresh.map(f=>f.hex));
+    fresh.forEach(f=>{ flightMap[f.hex]=f; });
+
+    // Prune aircraft outside padded viewport
+    const bounds = map.getBounds().pad(0.3);
+    let pruned = 0;
     Object.keys(flightMap).forEach(hex=>{
       const f=flightMap[hex];
-      if(!freshSet.has(hex)&&!bounds.contains([f.lat,f.lng])){delete flightMap[hex];pruned++;}
+      if(!freshSet.has(hex) && !bounds.contains([f.lat,f.lng])){
+        delete flightMap[hex]; pruned++;
+      }
     });
-    if(pruned) vlog('info',`Pruned ${pruned} out-of-view aircraft`);
-    document.getElementById('srcbadge').textContent=workingApi.name.split(' ')[0]+' · '+dist+'nm';
-    setStatus('ok',`${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${new Date().toLocaleTimeString()}`);
+
+    const t = new Date().toLocaleTimeString();
+    const proxyLabel = workingApi.useProxy ? ` proxy${(workingApi.proxyIdx||0)+1}` : ' direct';
+    document.getElementById('srcbadge').textContent =
+      `${workingApi.name}${proxyLabel} · ${tiles.length}×250nm`;
+    setStatus('ok',
+      `${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${t}` +
+      (pruned ? ` · pruned ${pruned}` : '')
+    );
+    vlog('ok', `Total: ${allAc.length} raw → ${fresh.length} airborne from ${tileCount}/${tiles.length} tiles`);
   } else {
-    vlog('warn','Fetch failed — resetting API, will re-probe next cycle');
-    workingApi=null;
-    setStatus('err','Fetch failed — will retry');
+    // All tiles failed — reset API so next attempt re-probes
+    vlog('warn', `All ${tiles.length} tiles failed — resetting API`);
+    workingApi = null;
+    setStatus('err','Fetch failed — will re-probe on next move');
   }
+
   isFetching=false; ring(false);
   document.getElementById('rbtn').classList.remove('spin');
   renderMap();
@@ -631,24 +787,38 @@ function onSearch(){query=document.getElementById('search').value.trim();renderM
    RENDER
 ═══════════════════════════════════════════════ */
 function renderMap(){
+  const vis    = filtered();
+  const visSet = new Set(vis.map(f=>f.hex));
+
+  // Remove markers for planes no longer in flightMap OR not passing filter
+  // (keep selected plane regardless of filter)
   Object.keys(markers).forEach(hex=>{
-    if(!flightMap[hex]){map.removeLayer(markers[hex]);delete markers[hex];}
+    const keep = flightMap[hex] && (visSet.has(hex) || (selected && flightMap[hex]?.id===selected));
+    if(!keep){ map.removeLayer(markers[hex]); delete markers[hex]; }
   });
-  const vis=filtered(), visSet=new Set(vis.map(f=>f.hex));
+
   document.getElementById('pill').textContent=vis.length.toLocaleString()+' ac';
   document.getElementById('fab').className=selected?'on':'';
-  allList().forEach(f=>{
-    const inView=visSet.has(f.hex);
-    const dimmed=inView?(!!selected&&selected!==f.id):true;
-    const sel=selected===f.id;
-    const color=sel?'#ffffff':(dimmed?'#252840':(CAT[f.category]||CAT.unknown).color);
-    const sz=sel?28:(dimmed?14:20);
-    const op=dimmed?0.13:1;
+
+  // Render only visible + selected
+  const toRender = selected
+    ? [...vis, ...(allList().filter(f=>f.id===selected&&!visSet.has(f.hex)))]
+    : vis;
+
+  toRender.forEach(f=>{
+    const sel    = selected===f.id;
+    const dimmed = !!selected && !sel;   // dim all except selected when something is selected
+    const color  = sel?'#ffffff':(dimmed?'#2a2d42':(CAT[f.category]||CAT.unknown).color);
+    const sz     = sel?28:(dimmed?14:20);
+    const op     = dimmed?0.15:1;
+    const zi     = sel?2000:(dimmed?-200:0);
+
     if(markers[f.hex]){
       markers[f.hex].setLatLng([f.lat,f.lng]);
       markers[f.hex].setIcon(planeIcon(f.hdg,color,sz,op));
+      markers[f.hex].options.zIndexOffset=zi;
     } else {
-      const m=L.marker([f.lat,f.lng],{icon:planeIcon(f.hdg,color,sz,op),zIndexOffset:sel?2000:(dimmed?-200:0)});
+      const m=L.marker([f.lat,f.lng],{icon:planeIcon(f.hdg,color,sz,op),zIndexOffset:zi});
       m.on('click',()=>selectFlight(f.id));
       m.addTo(map);
       markers[f.hex]=m;
@@ -665,20 +835,74 @@ function renderMap(){
 /* ═══════════════════════════════════════════════
    SELECT / DESELECT
 ═══════════════════════════════════════════════ */
+// Route line + airport markers on map
+let routeLayer = null;
+
+function clearRoute(){
+  if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
+}
+
+function drawRoute(f, route){
+  clearRoute();
+  if(!route) return;
+  const o=route.origin, d=route.destination, m=route.midpoint;
+  const pts=[[o.latitude,o.longitude]];
+  if(m) pts.push([m.latitude,m.longitude]);
+  pts.push([f.lat,f.lng]); // current aircraft position
+  pts.push([d.latitude,d.longitude]);
+
+  const cat=CAT[f.category]||CAT.unknown;
+  routeLayer=L.layerGroup();
+
+  // Great-circle line
+  L.polyline(pts,{color:cat.color,weight:2,opacity:0.7,dashArray:'6,4'}).addTo(routeLayer);
+
+  // Origin airport marker
+  L.circleMarker([o.latitude,o.longitude],{
+    radius:7,color:cat.color,fillColor:cat.color,fillOpacity:0.9,weight:2
+  }).bindTooltip(`<b>🛫 ${o.iata_code||o.icao_code}</b><br>${o.name}<br>${o.municipality}, ${o.country_name}`,
+    {direction:'top'}).addTo(routeLayer);
+
+  // Destination airport marker
+  L.circleMarker([d.latitude,d.longitude],{
+    radius:7,color:'#ffffff',fillColor:'#ffffff',fillOpacity:0.9,weight:2
+  }).bindTooltip(`<b>🛬 ${d.iata_code||d.icao_code}</b><br>${d.name}<br>${d.municipality}, ${d.country_name}`,
+    {direction:'top'}).addTo(routeLayer);
+
+  // Midpoint if present
+  if(m){
+    L.circleMarker([m.latitude,m.longitude],{
+      radius:5,color:cat.color,fillColor:cat.color,fillOpacity:0.6,weight:1.5,dashArray:'3,2'
+    }).bindTooltip(`<b>⏩ ${m.iata_code||m.icao_code}</b><br>${m.name}`,{direction:'top'}).addTo(routeLayer);
+  }
+
+  routeLayer.addTo(map);
+}
+
 async function selectFlight(id){
   if(selected===id){deselect();return;}
+  clearRoute();
   selected=id; renderMap();
   const f=allList().find(x=>x.id===id);
   if(!f) return;
-  // Start enrichment while flying to position
-  enrichAircraft(f.hex);
-  map.flyTo([f.lat,f.lng],8,{duration:1.0,easeLinearity:.5});
-  renderDetail(f);
-  // Re-render detail after enrichment arrives (~2s)
-  setTimeout(()=>{ if(selected===id) renderDetail(f); }, 2500);
+
+  renderDetail(f); // show immediately with what we have
+  document.getElementById('detail').classList.add('on');
+
+  // Fly to aircraft
+  map.flyTo([f.lat,f.lng],7,{duration:1.0,easeLinearity:.5});
+
+  // Enrich (aircraft info + route) — then re-render
+  await enrichAircraft(f.hex, f.id);
+  if(selected===id){
+    renderDetail(f);
+    const cached=acCache[f.hex]||{};
+    if(cached.route) drawRoute(f, cached.route);
+  }
 }
 function deselect(silent){
   selected=null;
+  clearRoute();
   document.getElementById('detail').classList.remove('on');
   document.getElementById('fab').className='';
   renderMap();
@@ -686,7 +910,7 @@ function deselect(silent){
 }
 
 /* ═══════════════════════════════════════════════
-   DETAIL PANEL
+   DETAIL PANEL — full aircraft details
 ═══════════════════════════════════════════════ */
 function renderDetail(f){
   if(!f) return;
@@ -694,31 +918,35 @@ function renderDetail(f){
   const intel  = INTEL_DB[(f.hex||'').toLowerCase()];
   const sqSt   = squawkStatus(f.sqk, f.emergency);
   const cached = acCache[f.hex]||{};
-  const fullType = cached.typeFull || typeName(f.type);
-  const owner    = cached.owner || f.country || '—';
-  const photoUrl = cached.photoUrl;
+  const fullType      = cached.typeFull || typeName(f.type);
+  const mfr           = cached.manufacturer || '';
+  const owner         = cached.owner || '';
+  const operator      = cached.operator || '';
+  const photoUrl      = cached.photoUrl;
+  const route         = cached.route || null;
+  const airline       = route?.airline || null;
+  // Operator: prefer airline name from route data, then ICAO flag code, then ADS-B country
+  const operatorLabel = airline?.name
+    ? `${airline.name}${airline.iata?' ('+airline.iata+')':''}`
+    : (operator ? operator : (f.country && f.country!=='—' ? f.country : '—'));
+  const ownerLabel    = owner || f.country || '—';
 
   let html = '';
 
-  // Status banner
+  // ── Status banner ───────────────────────────────
   html += `<div class="status-banner ${sqSt.cls}">${sqSt.label} &nbsp;·&nbsp; ${sqSt.desc}</div>`;
 
-  // Intel badge
-  if(intel){
-    html += `<div class="intel-badge">🔵 ${intel.agency} · ${intel.country} · ${intel.note}</div>`;
-  }
-
-  // Header
+  // ── Header: callsign + category ─────────────────
   html += `<div class="dtop">
-    <div><div class="did">${f.id}</div>
-      <div class="dsub">${f.reg} · ${owner}</div></div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <span class="ctag ct-${f.category}">${cat.label}</span>
-      <button class="dclose" onclick="deselect()">×</button>
+    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+      <div class="did">${f.id}</div>
+      <span class="ctag ct-${f.category}" style="font-size:10px;padding:2px 7px">${cat.label}</span>
+      ${intel?`<span style="font-size:10px;color:#e060e8">🔵 ${intel.agency}</span>`:''}
     </div>
+    <button class="dclose" onclick="deselect()">×</button>
   </div>`;
 
-  // Aircraft card with photo
+  // ── Aircraft card (photo + type info) ───────────
   html += `<div class="ac-card">`;
   if(photoUrl){
     html += `<img class="ac-photo" src="${photoUrl}" alt="${f.type}" loading="lazy"/>`;
@@ -726,29 +954,84 @@ function renderDetail(f){
     html += `<div class="ac-photo-placeholder">✈</div>`;
   }
   html += `<div class="ac-info">
-    <div class="ac-type">${fullType}</div>
-    <div class="ac-reg">Reg: ${f.reg} · ICAO: ${f.hex}</div>
-    <div class="ac-owner">${owner}</div>
+    <div class="ac-type">${fullType}${mfr?' <span style=\"color:#6b6e8a;font-weight:400\">· '+mfr+'</span>':''}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin-top:3px">
+      <div>
+        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">Registration</div>
+        <div style="font-size:11px;color:#e0e2ee;font-family:monospace">${f.reg!=='—'?f.reg:'—'}</div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">ICAO24</div>
+        <div style="font-size:11px;color:#e0e2ee;font-family:monospace">${f.hex!=='—'?f.hex:'—'}</div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">Owner</div>
+        <div style="font-size:11px;color:#4fa8e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${ownerLabel}">${ownerLabel}</div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:#45485e;text-transform:uppercase;letter-spacing:.05em">Operator</div>
+        <div style="font-size:11px;color:#7dd460;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${operatorLabel}">${operatorLabel}</div>
+      </div>
+    </div>
   </div></div>`;
 
-  // Data grid
+  // ── Route: Origin → Destination ─────────────────
+  if(route){
+    const o=route.origin, d=route.destination;
+    html += `<div style="background:#0d0f18;border-radius:6px;border:1px solid #1e2130;padding:5px 10px;margin-bottom:5px;display:flex;align-items:center;gap:6px">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.1">${o.iata_code||o.icao_code}</div>
+        <div style="font-size:9px;color:#7dd460">🛫 ${o.municipality||o.country_name}</div>
+      </div>
+      <div style="flex:1.2;text-align:center">
+        <div style="font-size:9px;color:#6b6e8a;line-height:1.4">${routeProgress(f,route)}</div>
+        <div style="height:1px;background:linear-gradient(90deg,#7dd460,#4fa8e8);margin:2px 0"></div>
+        ${route.midpoint?`<div style="font-size:9px;color:#e8a040">via ${route.midpoint.iata_code||route.midpoint.icao_code}</div>`:'<div style="font-size:9px;color:#3a3d52">direct</div>'}
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.1">${d.iata_code||d.icao_code}</div>
+        <div style="font-size:9px;color:#e85858">🛬 ${d.municipality||d.country_name}</div>
+      </div>
+    </div>`;
+  } else if(cached._done){
+    html += `<div style="font-size:10px;color:#45485e;padding:2px 0;margin-bottom:4px">No route data — military, charter or unknown callsign</div>`;
+  } else {
+    html += `<div style="font-size:10px;color:#e8a040;padding:2px 0;margin-bottom:4px">⏳ Loading route…</div>`;
+  }
+
+  // ── Flight data grid ─────────────────────────────
   html += `<div class="dgrid">
-    <div class="dm"><div class="dml">Callsign</div><div class="dmv">${f.id}</div></div>
-    <div class="dm"><div class="dml">Altitude</div><div class="dmv">${f.alt?f.alt.toLocaleString()+' ft':'—'}</div></div>
+    <div class="dm"><div class="dml">Alt</div><div class="dmv">${f.alt?f.alt.toLocaleString()+' ft':'—'}</div></div>
     <div class="dm"><div class="dml">Speed</div><div class="dmv">${f.spd?f.spd+' kts':'—'}</div></div>
-    <div class="dm"><div class="dml">Heading</div><div class="dmv">${f.hdg}°</div></div>
+    <div class="dm"><div class="dml">Hdg</div><div class="dmv">${f.hdg}°</div></div>
+    <div class="dm"><div class="dml">V/rate</div><div class="dmv">${f.vrate?(f.vrate>0?'+':'')+Math.round(f.vrate)+' fpm':'—'}</div></div>
     <div class="dm"><div class="dml">Phase</div><div class="dmv">${f.phase}</div></div>
     <div class="dm"><div class="dml">Squawk</div><div class="dmv" style="font-family:monospace">${f.sqk}</div></div>
   </div>`;
 
-  // Honest notes
-  html += `<div class="note-box">
-    ⚠ Cargo manifest &amp; passenger lists are never publicly available — classified or legally protected.<br>
-    Aircraft photo &amp; registration data via hexdb.io (community-sourced). Intel matching based on published investigative research only — many agency aircraft use shell companies or temporary ICAO addresses (PIA program) and will not appear here.
-  </div>`;
+  // ── Honest disclaimer ────────────────────────────
+
 
   document.getElementById('detail-content').innerHTML = html;
   document.getElementById('detail').classList.add('on');
+}
+
+function routeProgress(f, route){
+  if(!route) return '';
+  // Rough % estimate using distance ratios
+  try {
+    const o=route.origin, d=route.destination;
+    const totalDist=haverDist(o.latitude,o.longitude,d.latitude,d.longitude);
+    const flownDist=haverDist(o.latitude,o.longitude,f.lat,f.lng);
+    const pct=Math.max(0,Math.min(100,Math.round(flownDist/totalDist*100)));
+    return `~${pct}% flown · ${Math.round(totalDist)} nm`;
+  } catch(e){ return ''; }
+}
+
+function haverDist(lat1,lon1,lat2,lon2){
+  const R=3440.1, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 /* ═══════════════════════════════════════════════
