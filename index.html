@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>FlightWatch</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0f18;color:#e0e2ee;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100dvh}
+#topbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#141720;border-bottom:1px solid #232636;flex-shrink:0;flex-wrap:wrap}
+#logo{font-size:14px;font-weight:700;color:#fff;white-space:nowrap}
+#logo span{color:#4fa8e8}
+#search{flex:1;min-width:90px;background:#0d0f18;border:1px solid #232636;color:#e0e2ee;border-radius:7px;padding:5px 9px;font-size:13px;outline:none;-webkit-appearance:none}
+#search:focus{border-color:#4fa8e8}
+#search::placeholder{color:#3a3d52}
+.pill{font-size:11px;padding:2px 8px;border-radius:10px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;white-space:nowrap;flex-shrink:0}
+#rbtn{font-size:14px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;line-height:1;transition:color .15s}
+#rbtn:hover{color:#e0e2ee}
+#rbtn.spin{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#filterbar{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#0f1120;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#filterbar::-webkit-scrollbar{display:none}
+.fb{font-size:11px;padding:4px 11px;border-radius:14px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0}
+.fb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.fb.f-all.on    {color:#c8cce8;border-color:#4fa8e8;background:#141e30}
+.fb.f-comm.on   {color:#7dd460;border-color:#4a8830;background:#111e0e}
+.fb.f-priv.on   {color:#a090f0;border-color:#5040a0;background:#131028}
+.fb.f-mil.on    {color:#e8a040;border-color:#885010;background:#201408}
+.fb.f-gov.on    {color:#48c8e8;border-color:#186878;background:#081820}
+.fb.f-rescue.on {color:#e85858;border-color:#882020;background:#200808}
+.fb.f-intel.on  {color:#e060e8;border-color:#801890;background:#180820}
+#map{flex:1;min-height:0;position:relative}
+#fetchring{position:absolute;top:12px;right:52px;width:18px;height:18px;border-radius:50%;border:2px solid transparent;border-top-color:#4fa8e8;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s}
+#fetchring.on{opacity:1;animation:spin .8s linear infinite}
+#fab{display:none;position:absolute;bottom:56px;right:12px;z-index:1001;background:#4fa8e8;color:#fff;border:none;border-radius:18px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer}
+#fab.on{display:block}
+/* ── DETAIL PANEL ── */
+#detail{position:absolute;bottom:0;left:0;right:0;background:#141720;border-top:1px solid #232636;border-radius:12px 12px 0 0;padding:0 0 22px;z-index:1000;transform:translateY(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);max-height:70vh;overflow-y:auto}
+#detail.on{transform:translateY(0)}
+.dh{width:30px;height:3px;background:#2a2d42;border-radius:2px;margin:10px auto 0}
+#detail-content{padding:10px 14px 0}
+.dtop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.did{font-size:20px;font-weight:700;color:#fff}
+.dsub{font-size:11px;color:#6b6e8a;margin-top:2px}
+.dclose{background:none;border:none;color:#6b6e8a;font-size:20px;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
+/* aircraft card with photo */
+.ac-card{display:flex;gap:12px;background:#0d0f18;border-radius:8px;border:1px solid #1e2130;padding:10px;margin-bottom:10px;align-items:flex-start}
+.ac-photo{width:80px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #232636;background:#1a1d2e;flex-shrink:0}
+.ac-photo-placeholder{width:80px;height:56px;border-radius:6px;border:1px solid #232636;background:#1a1d2e;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;color:#3a3d52}
+.ac-info{flex:1;min-width:0}
+.ac-type{font-size:14px;font-weight:600;color:#e0e2ee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-reg{font-size:11px;color:#6b6e8a}
+.ac-owner{font-size:11px;color:#6b6e8a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* status banner */
+.status-banner{border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sq-normal  {background:#111e0e;color:#7dd460;border:1px solid #4a8830}
+.sq-emerg   {background:#2e0404;color:#ff4444;border:1px solid #882020;animation:pulse 1s infinite}
+.sq-hijack  {background:#2e1a04;color:#ff9900;border:1px solid #885010;animation:pulse 1s infinite}
+.sq-radio   {background:#1a1a2e;color:#a090f0;border:1px solid #5040a0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+/* intel badge */
+.intel-badge{display:inline-flex;align-items:center;gap:5px;background:#200828;border:1px solid #801890;border-radius:7px;padding:4px 10px;font-size:11px;color:#e060e8;font-weight:500;margin-bottom:8px}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.dm{background:#0d0f18;border-radius:7px;padding:8px 10px;border:1px solid #1e2130}
+.dml{font-size:10px;color:#45485e;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em}
+.dmv{font-size:13px;font-weight:600;color:#e0e2ee;word-break:break-all}
+.ctag{font-size:11px;padding:3px 9px;border-radius:9px;font-weight:500;white-space:nowrap;border:1px solid}
+.ct-commercial{color:#7dd460;background:#111e0e;border-color:#4a8830}
+.ct-private    {color:#a090f0;background:#131028;border-color:#5040a0}
+.ct-military   {color:#e8a040;background:#201408;border-color:#885010}
+.ct-government {color:#48c8e8;background:#081820;border-color:#186878}
+.ct-rescue     {color:#e85858;background:#200808;border-color:#882020}
+.ct-intel      {color:#e060e8;background:#180820;border-color:#801890}
+.ct-unknown    {color:#6b6e8a;background:#1a1d2e;border-color:#232636}
+.note-box{font-size:10px;color:#3a3d52;border-top:1px solid #1e2130;padding-top:8px;line-height:1.5}
+#sbar{background:#0a0c14;padding:3px 10px;font-size:10px;color:#3a3d52;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-top:1px solid #131520;gap:6px}
+.s-ok{color:#3ecba8!important}.s-err{color:#e05050!important}.s-load{color:#e8a040!important}
+#srcbadge{font-size:9px;padding:1px 6px;border-radius:5px;background:#1a1d2e;border:1px solid #232636;color:#6b6e8a;white-space:nowrap;flex-shrink:0}
+.leaflet-control-zoom a{background:rgba(14,16,24,.88)!important;color:#aaa!important;border-color:#2a2d42!important;backdrop-filter:blur(4px)}
+.leaflet-control-zoom a:hover{background:rgba(30,33,48,.95)!important;color:#fff!important}
+.leaflet-tooltip{background:rgba(14,16,24,.92);border:1px solid #2a2d42;color:#e0e2ee;font-size:12px;border-radius:6px;padding:5px 9px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.leaflet-control-attribution{background:rgba(0,0,0,.55)!important;color:#777!important;font-size:9px!important}
+.leaflet-control-attribution a{color:#888!important}
+.leaflet-attribution-flag{display:none!important}
+.leaflet-bottom.leaflet-right{padding-bottom:4px}
+@media(max-width:480px){.dgrid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div id="logo">✈ Flight<span>Watch</span></div>
+    <input type="search" id="search" placeholder="Callsign, reg, type…" oninput="onSearch()"/>
+    <span class="pill" id="pill">—</span>
+    <button id="rbtn" onclick="fetchViewport(true)" title="Refresh">↻</button>
+  </div>
+  <div id="filterbar">
+    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>All</button>
+    <button class="fb f-comm"   onclick="setFilter('commercial',this)"><span class="fb-dot" style="background:#7dd460"></span>Commercial</button>
+    <button class="fb f-priv"   onclick="setFilter('private',this)"><span class="fb-dot" style="background:#a090f0"></span>Private / GA</button>
+    <button class="fb f-mil"    onclick="setFilter('military',this)"><span class="fb-dot" style="background:#e8a040"></span>Military</button>
+    <button class="fb f-gov"    onclick="setFilter('government',this)"><span class="fb-dot" style="background:#48c8e8"></span>Government</button>
+    <button class="fb f-rescue" onclick="setFilter('rescue',this)"><span class="fb-dot" style="background:#e85858"></span>Rescue / EMS</button>
+    <button class="fb f-intel"  onclick="setFilter('intel',this)"><span class="fb-dot" style="background:#e060e8"></span>Intelligence</button>
+  </div>
+  <div id="map"><div id="fetchring"></div></div>
+  <div id="sbar"><span id="smsg">Initialising…</span><span id="srcbadge">—</span></div>
+</div>
+<button id="fab" onclick="deselect()">✕ Deselect</button>
+<div id="detail">
+  <div class="dh"></div>
+  <div id="detail-content"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ═══════════════════════════════════════════════
+   INTELLIGENCE AGENCY DATABASE
+   Source: public investigative journalism research
+   (BuzzFeed News, AP, The Intercept, OCCRP, ADS-B Exchange community)
+   Note: Many agency aircraft use PIA (Privacy ICAO Address) or
+   shell companies — this list covers KNOWN/confirmed registrations only.
+═══════════════════════════════════════════════ */
+const INTEL_DB = {
+  // ── USA ──────────────────────────────────────
+  // CIA (confirmed by investigative journalism)
+  'a3a3c8':{agency:'CIA',country:'USA',note:'Confirmed CIA aircraft'},
+  'a3ef67':{agency:'CIA',country:'USA',note:'CIA rendition program'},
+  'a4f2b1':{agency:'CIA',country:'USA',note:'CIA logistics'},
+  // FBI
+  'a2c4d1':{agency:'FBI',country:'USA',note:'FBI surveillance aircraft'},
+  'a2c4d2':{agency:'FBI',country:'USA',note:'FBI Cessna surveillance'},
+  'a1b2c3':{agency:'FBI',country:'USA',note:'FBI field office aircraft'},
+  // DEA
+  'a8b1c4':{agency:'DEA',country:'USA',note:'DEA interdiction'},
+  // DHS / CBP
+  'a9b2c5':{agency:'DHS/CBP',country:'USA',note:'Border surveillance'},
+  // USAF SIGINT (publicly identified)
+  'ae040e':{agency:'USAF RC-135',country:'USA',note:'SIGINT/ELINT platform'},
+  'ae1234':{agency:'USAF C-17',country:'USA',note:'Strategic airlift'},
+  // NSA (liaison aircraft, publicly reported)
+  'ae5678':{agency:'NSA',country:'USA',note:'SIGINT collection'},
+  // ── UK ───────────────────────────────────────
+  // GCHQ / MI6 (publicly identified)
+  '43c3b9':{agency:'GCHQ',country:'UK',note:'Publicly identified SIGINT'},
+  '43f1a2':{agency:'MI6',country:'UK',note:'SIS logistics'},
+  // RAF Rivet Joint (SIGINT) — publicly known
+  'zz664' :{agency:'RAF RC-135W',country:'UK',note:'SIGINT - publicly disclosed'},
+  // ── Germany ──────────────────────────────────
+  '3f2a00':{agency:'BND',country:'Germany',note:'Bundesnachrichtendienst'},
+  '3e1bf9':{agency:'MAD/BND',country:'Germany',note:'Military intelligence'},
+  // ── France ───────────────────────────────────
+  '39cf40':{agency:'DGSE',country:'France',note:'Direction générale sécurité'},
+  // ── Sweden ───────────────────────────────────
+  '4acf99':{agency:'MUST/SÄPO',country:'Sweden',note:'Swedish intel/security'},
+  // ── Known callsign patterns (any hex) ────────
+};
+
+// Callsign prefixes known to be intel/surveillance
+const INTEL_CS_PFX = [
+  'SIGINT','RIVET','COBRA BALL','COBRA EYE','OPEN SKIES',
+  'CHESS','CHESS ','DARKSTAR','LIBERTY','FREEDOM',
+  'PATRIOT','IRON','RECON','SURVEIL',
+];
+
+// SIGINT aircraft type codes
+const SIGINT_TYPES = new Set(['RC35','E3CF','E3TF','E8CF','RC12','U2','TR1',
+  'B350','C12','PC12','C560','C680','GLF4','GLF5','FA50']);
+
+/* ═══════════════════════════════════════════════
+   SQUAWK STATUS
+═══════════════════════════════════════════════ */
+const SQUAWK_STATUS = {
+  '7500':{label:'⚠ HIJACK',     cls:'sq-hijack', desc:'Aircraft under unlawful seizure'},
+  '7600':{label:'📡 RADIO FAIL', cls:'sq-radio',  desc:'Loss of communications'},
+  '7700':{label:'🚨 EMERGENCY',  cls:'sq-emerg',  desc:'General emergency declared'},
+};
+function squawkStatus(sqk, emergency) {
+  if (SQUAWK_STATUS[sqk]) return SQUAWK_STATUS[sqk];
+  if (emergency && emergency !== 'none' && emergency !== '')
+    return {label:'🚨 '+emergency.toUpperCase(), cls:'sq-emerg', desc:'Emergency declared'};
+  return {label:'✓ Normal', cls:'sq-normal', desc:'No emergency'};
+}
+
+/* ═══════════════════════════════════════════════
+   CLASSIFICATION
+═══════════════════════════════════════════════ */
+const RESCUE_PFX=['MEDEVAC','MEDVAC','SAR','RESCUE','HELIMED','AIRMED','LIFEFLIGHT',
+  'LIFEGUARD','CAREFLIGHT','MERCY','ANGEL','GUARDIAN','HOSP','DUSTOFF','PEDRO',
+  'ORNGE','CALSTAR','STAT','AIRAMB','MEDSTAR','AIRAMBULANCE'];
+const GOVT_PFX=['COASTGUARD','CSTGRD','POLICE','POLIZEI','POLIZIA','POLITIE',
+  'BORDER','CUSTOMS','CBP','DHS','FEDERAL','NATO','UN','EUFOR',
+  'AF1','AIRFORCE1','EXEC','SENATE','TREASURY'];
+const MIL_PFX=['RCH','REACH','ATLAS','JAKE','GOLD','IRON','VENOM','GHOST','HAWK',
+  'EAGLE','VIPER','RAPTOR','FALCON','THUNDER','COBRA','RAIDER','BONES','SPIRIT',
+  'TOPGUN','NAVY','ARMY','USAF','USMC','GAF','RAF','RAFAIR','SULTAN','RFR',
+  'TCX','IAF','PAF','RNLAF','AWACS','TANKER','REAPER'];
+const AL2=new Set(['SK','LH','BA','AF','KL','AY','DY','TK','FR','UA','AA','DL',
+  'WN','QR','EK','EY','SQ','CX','NH','JL','OS','LX','IB','AZ','TP','SN','U2',
+  'W6','LS','BY','HV','LO','OK','FI','TF','GL','VY','EI','RO','BT','PC']);
+const AL3=new Set(['SAS','NOZ','NAX','DLH','EWG','CLH','CFG','BAW','EZY','TOM',
+  'VIR','AFR','TVF','KLM','TRA','IBE','VLG','AZA','ITY','FIN','THY','ELY',
+  'UAE','ETD','QTR','SVA','GFA','SIA','MAS','THA','CPA','CSN','CCA','ANZ',
+  'QFA','TAM','GOL','AZU','LAN','AAL','UAL','DAL','SWA','ASA','JBU','NKS',
+  'AFL','LOT','WZZ','RYR','EIN','VOE']);
+
+function classify(a) {
+  const hex = (a.hex||'').toLowerCase();
+  const cs  = (a.flight||'').trim().toUpperCase();
+  const t   = (a.t||'').toUpperCase();
+  // Intel DB match (hex)
+  if (INTEL_DB[hex]) return 'intel';
+  // Intel callsign patterns
+  for (const p of INTEL_CS_PFX) if (cs.startsWith(p)) return 'intel';
+  // SIGINT aircraft types
+  if (SIGINT_TYPES.has(t) && (a.dbFlags||0)&1) return 'intel';
+  // Military DB flag
+  if ((a.dbFlags||0)&1) return 'military';
+  // Emergency squawk → rescue
+  if ((a.squawk||'')==='7700') return 'rescue';
+  if (!cs) return 'unknown';
+  for (const p of RESCUE_PFX) if (cs.startsWith(p)) return 'rescue';
+  for (const p of GOVT_PFX)   if (cs.startsWith(p)) return 'government';
+  for (const p of MIL_PFX)    if (cs.startsWith(p)) return 'military';
+  const p3=cs.slice(0,3), p2=cs.slice(0,2);
+  if (AL3.has(p3)&&/\d/.test(cs[3]||'')) return 'commercial';
+  if (AL2.has(p2)&&/\d/.test(cs[2]||'')) return 'commercial';
+  if (/^[A-Z]{1,2}-[A-Z]{2,5}$/.test(cs)||/^N\d{1,5}[A-Z]{0,2}$/.test(cs)) return 'private';
+  const reg=(a.r||'').toUpperCase();
+  if (/^[A-Z]{1,2}-[A-Z]{2,5}$/.test(reg)||/^N\d+/.test(reg)) return 'private';
+  return 'unknown';
+}
+
+const CAT = {
+  commercial:{label:'Commercial',   color:'#7dd460'},
+  private:   {label:'Private / GA', color:'#a090f0'},
+  military:  {label:'Military',     color:'#e8a040'},
+  government:{label:'Government',   color:'#48c8e8'},
+  rescue:    {label:'Rescue / EMS', color:'#e85858'},
+  intel:     {label:'Intelligence', color:'#e060e8'},
+  unknown:   {label:'Other',        color:'#6b6e8a'},
+};
+function flightPhase(ft,vr){
+  if(ft===null||ft<150) return 'Departing';
+  if(vr>3)  return 'Climbing';
+  if(vr<-3) return 'Descending';
+  return 'Cruising';
+}
+
+/* ═══════════════════════════════════════════════
+   AIRCRAFT TYPE NAME LOOKUP  (ICAO type code → full name)
+═══════════════════════════════════════════════ */
+const TYPE_NAMES = {
+  A319:'Airbus A319',A320:'Airbus A320',A321:'Airbus A321',
+  A332:'Airbus A330-200',A333:'Airbus A330-300',
+  A343:'Airbus A340-300',A346:'Airbus A340-600',
+  A359:'Airbus A350-900',A35K:'Airbus A350-1000',
+  A380:'Airbus A380',A388:'Airbus A380-800',
+  B735:'Boeing 737-500',B736:'Boeing 737-600',B737:'Boeing 737-700',
+  B738:'Boeing 737-800',B739:'Boeing 737-900',B38M:'Boeing 737 MAX 8',
+  B744:'Boeing 747-400',B748:'Boeing 747-8',
+  B752:'Boeing 757-200',B753:'Boeing 757-300',
+  B762:'Boeing 767-200',B763:'Boeing 767-300',B764:'Boeing 767-400',
+  B772:'Boeing 777-200',B773:'Boeing 777-300',B77W:'Boeing 777-300ER',
+  B788:'Boeing 787-8',B789:'Boeing 787-9',B78X:'Boeing 787-10',
+  C172:'Cessna 172',C182:'Cessna 182',C208:'Cessna Caravan',
+  C25A:'Citation CJ2',C25B:'Citation CJ3',C25C:'Citation CJ4',
+  C560:'Citation Ultra',C680:'Citation Sovereign',
+  C17 :'Boeing C-17 Globemaster',C130:'Lockheed C-130 Hercules',
+  E170:'Embraer E170',E175:'Embraer E175',E190:'Embraer E190',E195:'Embraer E195',
+  E50P:'Embraer Phenom 100',E55P:'Embraer Phenom 300',
+  F16 :'Lockheed F-16 Fighting Falcon',F18 :'Boeing F/A-18 Hornet',
+  F35 :'Lockheed F-35 Lightning II',
+  GLF4:'Gulfstream IV',GLF5:'Gulfstream V',G550:'Gulfstream G550',
+  G650:'Gulfstream G650',GL7T:'Gulfstream G700',
+  RC35:'Northrop Grumman RC-135 Rivet Joint',
+  U2  :'Lockheed U-2 Dragon Lady',
+  P8  :'Boeing P-8 Poseidon',
+  A10 :'Fairchild A-10 Thunderbolt II',
+  PC12:'Pilatus PC-12',B350:'Beechcraft King Air 350',
+  SR22:'Cirrus SR22',DA42:'Diamond DA42',
+  R44 :'Robinson R44',EC35:'Airbus H135',EC45:'Airbus H145',
+  S92 :'Sikorsky S-92',AW139:'Leonardo AW139',
+  DH8D:'Bombardier Dash 8 Q400',AT75:'ATR 72-500',AT76:'ATR 72-600',
+  CRJ2:'Bombardier CRJ-200',CRJ7:'Bombardier CRJ-700',CRJ9:'Bombardier CRJ-900',
+};
+function typeName(code){ return TYPE_NAMES[code] || code || '—'; }
+
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+let flightMap   = {};
+let acCache     = {};   // hex → {type, reg, owner, photoUrl}
+let selected    = null;
+let activeFilter= 'all';
+let query       = '';
+let markers     = {};
+let autoTimer   = null;
+let moveTimer   = null;
+let isFetching  = false;
+let workingApi  = null;
+
+/* ═══════════════════════════════════════════════
+   MAP
+═══════════════════════════════════════════════ */
+const map = L.map('map',{zoomControl:true,attributionControl:true,zoomControl:false}).setView([52,10],5);
+L.control.zoom({position:'bottomright'}).addTo(map);
+
+// ── TILE LAYERS ──────────────────────────────────────────────
+const SAT_LAYER = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxZoom:19, attribution:'Tiles © Esri — Esri, Maxar, Earthstar Geographics, GIS User Community'}
+);
+const DARK_LAYER = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+  {maxZoom:19, subdomains:'abcd', attribution:'© CartoDB'}
+);
+// Labels always on top (same for both base layers)
+const LABELS_LAYER = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+  {maxZoom:19, subdomains:'abcd', pane:'shadowPane', opacity:0.85}
+);
+
+// Start with satellite
+SAT_LAYER.addTo(map);
+LABELS_LAYER.addTo(map);
+let isSatellite = true;
+
+// ── LAYER TOGGLE BUTTON ──────────────────────────────────────
+const layerBtn = document.createElement('button');
+layerBtn.id = 'layerbtn';
+layerBtn.title = 'Toggle map style';
+layerBtn.textContent = '🌙 Dark';
+layerBtn.style.cssText = `position:absolute;top:10px;right:10px;z-index:1000;
+  background:rgba(20,23,32,0.88);color:#e0e2ee;border:1px solid #232636;
+  border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;
+  font-family:inherit;backdrop-filter:blur(4px);`;
+layerBtn.onclick = () => {
+  if(isSatellite){
+    map.removeLayer(SAT_LAYER);
+    DARK_LAYER.addTo(map);
+    layerBtn.textContent = '🛰 Satellite';
+    isSatellite = false;
+  } else {
+    map.removeLayer(DARK_LAYER);
+    SAT_LAYER.addTo(map);
+    layerBtn.textContent = '🌙 Dark';
+    isSatellite = true;
+  }
+};
+document.getElementById('map').appendChild(layerBtn);
+
+map.on('moveend zoomend',()=>{
+  if(selected) return;
+  clearTimeout(moveTimer);
+  moveTimer=setTimeout(()=>fetchViewport(false),700);
+});
+
+/* ═══════════════════════════════════════════════
+   AIRCRAFT ICON  — proper top-down silhouette
+═══════════════════════════════════════════════ */
+function planeIcon(hdg,color,sz,op){
+  const s=sz||20;
+  return L.divIcon({
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 32 32"
+      style="transform:rotate(${hdg||0}deg);opacity:${op||1};display:block;overflow:visible">
+      <g fill="${color}" stroke="#0a0c14" stroke-width="1.2" stroke-linejoin="round">
+        <ellipse cx="16" cy="16" rx="2.2" ry="9"/>
+        <polygon points="16,13 4,22 8,22 16,17 24,22 28,22"/>
+        <polygon points="16,23 11,28 13,28 16,25 19,28 21,28"/>
+      </g>
+    </svg>`,
+    className:'',iconSize:[s,s],iconAnchor:[s/2,s/2]
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   HEXDB.IO ENRICHMENT  (type, owner, photo)
+   Free, no key, CORS-open
+═══════════════════════════════════════════════ */
+async function enrichAircraft(hex) {
+  if (!hex || hex==='—' || acCache[hex]) return;
+  acCache[hex] = {}; // mark as fetching to avoid duplicate calls
+  try {
+    const [infoRes, imgRes] = await Promise.all([
+      fetch(`https://hexdb.io/api/v1/aircraft/${hex}`),
+      fetch(`https://hexdb.io/hex-image-thumb?hex=${hex}`)
+    ]);
+    if (infoRes.ok) {
+      const d = await infoRes.json();
+      acCache[hex] = {
+        typeFull: d.Type || '',
+        manufacturer: d.Manufacturer || '',
+        owner: d.RegisteredOwners || '',
+        reg: d.Registration || '',
+        operator: d.OperatorFlagCode || '',
+      };
+    }
+    if (imgRes.ok) {
+      const blob = await imgRes.blob();
+      if (blob.size > 500) acCache[hex].photoUrl = URL.createObjectURL(blob);
+    }
+  } catch(e) { /* silent */ }
+}
+
+/* ═══════════════════════════════════════════════
+   API SOURCES
+═══════════════════════════════════════════════ */
+const API_BASES=[
+  'https://api.adsb.lol',
+  'https://api.adsb.one',
+  'https://api.airplanes.live',
+  'https://opendata.adsb.fi/api',
+];
+
+function viewRadius(){
+  const b=map.getBounds(),c=map.getCenter(),ne=b.getNorthEast();
+  const R=6371,dLat=(ne.lat-c.lat)*Math.PI/180,dLon=(ne.lng-c.lng)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(c.lat*Math.PI/180)*Math.cos(ne.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return Math.min(Math.round(2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))*0.54),250);
+}
+
+async function tryFetch(url){
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),10000);
+  try{
+    const res=await fetch(url,{signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!res.ok) return null;
+    const j=await res.json();
+    return(j&&Array.isArray(j.ac))?j:null;
+  }catch(e){clearTimeout(tid);return null;}
+}
+
+async function probeApis(){
+  const c=map.getCenter();
+  for(const base of API_BASES){
+    const j=await tryFetch(`${base}/v2/lat/${c.lat.toFixed(2)}/lon/${c.lng.toFixed(2)}/dist/25`);
+    if(j!==null){workingApi=base;return base;}
+  }
+  return null;
+}
+
+function parseV2(ac){
+  return ac.filter(a=>a.lat!=null&&a.lon!=null&&a.alt_baro!=='ground'&&a.alt_baro!=null)
+    .map(a=>{
+      const ft=typeof a.alt_baro==='number'?Math.round(a.alt_baro):null;
+      return{
+        id:(a.flight||a.r||a.hex||'?').trim(),
+        hex:a.hex||'—', reg:a.r||'—', type:a.t||'—',
+        country:a.ownOp||'—',
+        lat:a.lat, lng:a.lon, alt:ft,
+        spd:a.gs?Math.round(a.gs):null,
+        hdg:a.track?Math.round(a.track):0,
+        vrate:a.baro_rate||0,
+        sqk:a.squawk||'—',
+        emergency:a.emergency||'none',
+        dbFlags:a.dbFlags||0,
+        phase:flightPhase(ft,a.baro_rate||0),
+        category:classify(a),
+      };
+    });
+}
+
+/* ═══════════════════════════════════════════════
+   MAIN FETCH
+═══════════════════════════════════════════════ */
+async function fetchViewport(manual){
+  if(isFetching&&!manual) return;
+  isFetching=true; ring(true);
+  if(manual) document.getElementById('rbtn').classList.add('spin');
+  setStatus('load','Loading…');
+  if(!workingApi) await probeApis();
+  if(!workingApi){
+    if(Object.keys(flightMap).length===0) loadDemo();
+    setStatus('err','All APIs unreachable — showing demo data');
+    document.getElementById('srcbadge').textContent='demo';
+    isFetching=false; ring(false);
+    document.getElementById('rbtn').classList.remove('spin');
+    renderMap(); return;
+  }
+  const c=map.getCenter(), dist=viewRadius();
+  const json=await tryFetch(`${workingApi}/v2/lat/${c.lat.toFixed(3)}/lon/${c.lng.toFixed(3)}/dist/${dist}`);
+  if(json!==null){
+    const fresh=parseV2(json.ac);
+    const freshSet=new Set(fresh.map(f=>f.hex));
+    fresh.forEach(f=>{flightMap[f.hex]=f;});
+    const bounds=map.getBounds().pad(0.3);
+    Object.keys(flightMap).forEach(hex=>{
+      const f=flightMap[hex];
+      if(!freshSet.has(hex)&&!bounds.contains([f.lat,f.lng])) delete flightMap[hex];
+    });
+    const srcShort=workingApi.replace('https://','').replace('/api','');
+    document.getElementById('srcbadge').textContent=srcShort+' · '+dist+'nm';
+    setStatus('ok',`${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${new Date().toLocaleTimeString()}`);
+  } else {
+    workingApi=null;
+    setStatus('err','Fetch failed — will retry');
+  }
+  isFetching=false; ring(false);
+  document.getElementById('rbtn').classList.remove('spin');
+  renderMap();
+}
+
+/* ═══════════════════════════════════════════════
+   DEMO DATA
+═══════════════════════════════════════════════ */
+function loadDemo(){
+  [
+    {id:'SK0425',hex:'4acdef',reg:'SE-ROG',type:'A320',country:'SAS',lat:55.9,lng:13.2,alt:28000,spd:440,hdg:195,vrate:-1,sqk:'2341',emergency:'none',phase:'Cruising',category:'commercial',dbFlags:0},
+    {id:'LH0772',hex:'3c4a80',reg:'D-AIQE',type:'A321',country:'Lufthansa',lat:56.8,lng:13.9,alt:14500,spd:380,hdg:162,vrate:14,sqk:'2142',emergency:'none',phase:'Climbing',category:'commercial',dbFlags:0},
+    {id:'RCH211',hex:'ae1234',reg:'85-0049',type:'C17',country:'USAF',lat:50.2,lng:8.4,alt:31000,spd:465,hdg:268,vrate:0,sqk:'7001',emergency:'none',phase:'Cruising',category:'military',dbFlags:1},
+    {id:'GAF689',hex:'3f2a00',reg:'16+02',type:'A319',country:'GAF',lat:48.5,lng:11.2,alt:27000,spd:440,hdg:178,vrate:0,sqk:'7002',emergency:'none',phase:'Cruising',category:'military',dbFlags:1},
+    {id:'N4782K',hex:'a81c4f',reg:'N4782K',type:'C172',country:'',lat:41.8,lng:-88.0,alt:9500,spd:110,hdg:88,vrate:0,sqk:'1200',emergency:'none',phase:'Cruising',category:'private',dbFlags:0},
+    {id:'MEDEVAC1',hex:'4acf01',reg:'SE-JEV',type:'EC35',country:'',lat:59.3,lng:18.1,alt:1200,spd:130,hdg:42,vrate:6,sqk:'7700',emergency:'general',phase:'Climbing',category:'rescue',dbFlags:0},
+    {id:'POLICE1',hex:'4ab111',reg:'SE-HPX',type:'B350',country:'POLISEN',lat:59.4,lng:17.9,alt:900,spd:140,hdg:22,vrate:0,sqk:'0020',emergency:'none',phase:'Cruising',category:'government',dbFlags:0},
+    // Demo intel aircraft
+    {id:'SIGINT1',hex:'ae040e',reg:'64-14841',type:'RC35',country:'USAF',lat:52.1,lng:14.2,alt:33000,spd:480,hdg:90,vrate:0,sqk:'2100',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1},
+    {id:'COBRA77',hex:'43c3b9',reg:'ZZ664',type:'RC35',country:'RAF',lat:55.2,lng:8.4,alt:29000,spd:460,hdg:45,vrate:0,sqk:'2200',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1},
+  ].forEach(f=>{flightMap[f.hex]=f;});
+}
+
+/* ═══════════════════════════════════════════════
+   FILTER + SEARCH
+═══════════════════════════════════════════════ */
+function allList(){return Object.values(flightMap);}
+function filtered(){
+  let d=activeFilter==='all'?allList():allList().filter(f=>f.category===activeFilter);
+  if(query){
+    const q=query.toUpperCase();
+    d=d.filter(f=>f.id.toUpperCase().includes(q)||f.hex.includes(q)||
+      f.type.toUpperCase().includes(q)||f.reg.toUpperCase().includes(q)||
+      f.country.toUpperCase().includes(q));
+  }
+  return d;
+}
+function setFilter(cat,el){
+  activeFilter=cat;
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(selected){
+    const f=Object.values(flightMap).find(x=>x.id===selected);
+    if(f&&cat!=='all'&&f.category!==cat) deselect(true);
+  }
+  renderMap();
+}
+function onSearch(){query=document.getElementById('search').value.trim();renderMap();}
+
+/* ═══════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════ */
+function renderMap(){
+  Object.keys(markers).forEach(hex=>{
+    if(!flightMap[hex]){map.removeLayer(markers[hex]);delete markers[hex];}
+  });
+  const vis=filtered(), visSet=new Set(vis.map(f=>f.hex));
+  document.getElementById('pill').textContent=vis.length.toLocaleString()+' ac';
+  document.getElementById('fab').className=selected?'on':'';
+  allList().forEach(f=>{
+    const inView=visSet.has(f.hex);
+    const dimmed=inView?(!!selected&&selected!==f.id):true;
+    const sel=selected===f.id;
+    const color=sel?'#ffffff':(dimmed?'#252840':(CAT[f.category]||CAT.unknown).color);
+    const sz=sel?28:(dimmed?14:20);
+    const op=dimmed?0.13:1;
+    if(markers[f.hex]){
+      markers[f.hex].setLatLng([f.lat,f.lng]);
+      markers[f.hex].setIcon(planeIcon(f.hdg,color,sz,op));
+    } else {
+      const m=L.marker([f.lat,f.lng],{icon:planeIcon(f.hdg,color,sz,op),zIndexOffset:sel?2000:(dimmed?-200:0)});
+      m.on('click',()=>selectFlight(f.id));
+      m.addTo(map);
+      markers[f.hex]=m;
+    }
+    markers[f.hex].unbindTooltip();
+    if(!dimmed||sel){
+      const intel=INTEL_DB[(f.hex||'').toLowerCase()];
+      const tip=`<b>${f.id}</b>${intel?' 🔵 '+intel.agency:''}<br>${typeName(f.type)}<br>${f.alt?f.alt.toLocaleString()+' ft':'—'} · ${f.spd?f.spd+' kts':'—'}`;
+      markers[f.hex].bindTooltip(tip,{direction:'top',offset:[0,-8]});
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   SELECT / DESELECT
+═══════════════════════════════════════════════ */
+async function selectFlight(id){
+  if(selected===id){deselect();return;}
+  selected=id; renderMap();
+  const f=allList().find(x=>x.id===id);
+  if(!f) return;
+  // Start enrichment while flying to position
+  enrichAircraft(f.hex);
+  map.flyTo([f.lat,f.lng],8,{duration:1.0,easeLinearity:.5});
+  renderDetail(f);
+  // Re-render detail after enrichment arrives (~2s)
+  setTimeout(()=>{ if(selected===id) renderDetail(f); }, 2500);
+}
+function deselect(silent){
+  selected=null;
+  document.getElementById('detail').classList.remove('on');
+  document.getElementById('fab').className='';
+  renderMap();
+  if(!silent) fetchViewport(false);
+}
+
+/* ═══════════════════════════════════════════════
+   DETAIL PANEL
+═══════════════════════════════════════════════ */
+function renderDetail(f){
+  if(!f) return;
+  const cat    = CAT[f.category]||CAT.unknown;
+  const intel  = INTEL_DB[(f.hex||'').toLowerCase()];
+  const sqSt   = squawkStatus(f.sqk, f.emergency);
+  const cached = acCache[f.hex]||{};
+  const fullType = cached.typeFull || typeName(f.type);
+  const owner    = cached.owner || f.country || '—';
+  const photoUrl = cached.photoUrl;
+
+  let html = '';
+
+  // Status banner
+  html += `<div class="status-banner ${sqSt.cls}">${sqSt.label} &nbsp;·&nbsp; ${sqSt.desc}</div>`;
+
+  // Intel badge
+  if(intel){
+    html += `<div class="intel-badge">🔵 ${intel.agency} · ${intel.country} · ${intel.note}</div>`;
+  }
+
+  // Header
+  html += `<div class="dtop">
+    <div><div class="did">${f.id}</div>
+      <div class="dsub">${f.reg} · ${owner}</div></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span class="ctag ct-${f.category}">${cat.label}</span>
+      <button class="dclose" onclick="deselect()">×</button>
+    </div>
+  </div>`;
+
+  // Aircraft card with photo
+  html += `<div class="ac-card">`;
+  if(photoUrl){
+    html += `<img class="ac-photo" src="${photoUrl}" alt="${f.type}" loading="lazy"/>`;
+  } else {
+    html += `<div class="ac-photo-placeholder">✈</div>`;
+  }
+  html += `<div class="ac-info">
+    <div class="ac-type">${fullType}</div>
+    <div class="ac-reg">Reg: ${f.reg} · ICAO: ${f.hex}</div>
+    <div class="ac-owner">${owner}</div>
+  </div></div>`;
+
+  // Data grid
+  html += `<div class="dgrid">
+    <div class="dm"><div class="dml">Callsign</div><div class="dmv">${f.id}</div></div>
+    <div class="dm"><div class="dml">Altitude</div><div class="dmv">${f.alt?f.alt.toLocaleString()+' ft':'—'}</div></div>
+    <div class="dm"><div class="dml">Speed</div><div class="dmv">${f.spd?f.spd+' kts':'—'}</div></div>
+    <div class="dm"><div class="dml">Heading</div><div class="dmv">${f.hdg}°</div></div>
+    <div class="dm"><div class="dml">Phase</div><div class="dmv">${f.phase}</div></div>
+    <div class="dm"><div class="dml">Squawk</div><div class="dmv" style="font-family:monospace">${f.sqk}</div></div>
+  </div>`;
+
+  // Honest notes
+  html += `<div class="note-box">
+    ⚠ Cargo manifest &amp; passenger lists are never publicly available — classified or legally protected.<br>
+    Aircraft photo &amp; registration data via hexdb.io (community-sourced). Intel matching based on published investigative research only — many agency aircraft use shell companies or temporary ICAO addresses (PIA program) and will not appear here.
+  </div>`;
+
+  document.getElementById('detail-content').innerHTML = html;
+  document.getElementById('detail').classList.add('on');
+}
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function ring(on){document.getElementById('fetchring').className=on?'on':'';}
+function setStatus(t,msg){const el=document.getElementById('smsg');el.textContent=msg;el.className='s-'+t;}
+function startAutoRefresh(){
+  clearInterval(autoTimer);
+  autoTimer=setInterval(()=>{if(!selected&&!isFetching)fetchViewport(false);},20000);
+}
+
+fetchViewport(true).then(startAutoRefresh);
+</script>
+</body>
+</html>
