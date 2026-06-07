@@ -85,6 +85,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .leaflet-control-attribution a{color:#888!important}
 .leaflet-attribution-flag{display:none!important}
 .leaflet-bottom.leaflet-right{padding-bottom:4px}
+.hidden{display:none!important}
 @media(max-width:480px){.dgrid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
@@ -95,6 +96,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <input type="search" id="search" placeholder="Callsign, reg, type…" oninput="onSearch()"/>
     <span class="pill" id="pill">—</span>
     <button id="rbtn" onclick="fetchViewport(true)" title="Refresh">↻</button>
+    <button id="logbtn" onclick="toggleLog()" title="Show/hide log" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0">📋 Log</button>
   </div>
   <div id="filterbar">
     <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>All</button>
@@ -112,6 +114,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="detail">
   <div class="dh"></div>
   <div id="detail-content"></div>
+</div>
+
+<!-- LOG PANEL -->
+<div id="logpanel" class="hidden" style="position:absolute;bottom:32px;left:0;right:0;z-index:2000;background:rgba(8,10,18,.96);border-top:1px solid #2a2d42;max-height:220px;overflow-y:auto;padding:8px 10px;font-size:10px;font-family:monospace;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <span style="color:#4fa8e8;font-weight:600;font-size:11px">API Debug Log</span>
+    <button onclick="toggleLog()" style="background:none;border:none;color:#6b6e8a;cursor:pointer;font-size:14px;line-height:1">×</button>
+  </div>
+  <div id="loglines" style="line-height:1.7"></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -408,11 +419,47 @@ async function enrichAircraft(hex) {
 /* ═══════════════════════════════════════════════
    API SOURCES
 ═══════════════════════════════════════════════ */
-const API_BASES=[
-  'https://api.adsb.lol',
-  'https://api.adsb.one',
-  'https://api.airplanes.live',
-  'https://opendata.adsb.fi/api',
+/* ═══════════════════════════════════════════════
+   VERBOSE LOG  — on-screen + console
+═══════════════════════════════════════════════ */
+const logLines = [];
+function vlog(level, msg) {
+  const t = new Date().toLocaleTimeString();
+  const line = `[${t}] ${level.toUpperCase()}: ${msg}`;
+  console.log(line);
+  logLines.unshift(line);
+  if (logLines.length > 40) logLines.pop();
+  const el = document.getElementById('logpanel');
+  if (el && !el.classList.contains('hidden')) {
+    el.querySelector('#loglines').innerHTML =
+      logLines.map(l => {
+        const col = l.includes('ERROR')||l.includes('FAIL') ? '#e85858'
+                  : l.includes('OK')||l.includes('SUCCESS')  ? '#7dd460'
+                  : l.includes('WARN')                        ? '#e8a040'
+                  : '#aab0c8';
+        return `<div style="color:${col}">${l}</div>`;
+      }).join('');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   API SOURCES + CORS PROXY
+   corsproxy.io explicitly supports github.io origins (free tier)
+   Syntax: https://corsproxy.io/?url=<encoded-target>
+═══════════════════════════════════════════════ */
+const PROXY = 'https://corsproxy.io/?url=';
+
+// Direct URLs (work if API has CORS headers — try first, faster)
+// Proxied fallback for github.io where direct calls fail
+const API_SOURCES = [
+  { name:'adsb.lol (direct)',   base:'https://api.adsb.lol',           proxy:false },
+  { name:'adsb.one (direct)',   base:'https://api.adsb.one',           proxy:false },
+  { name:'airplanes.live (direct)', base:'https://api.airplanes.live', proxy:false },
+  { name:'adsb.fi (direct)',    base:'https://opendata.adsb.fi/api',   proxy:false },
+  { name:'adsb.lol (proxied)',  base:'https://api.adsb.lol',           proxy:true  },
+  { name:'adsb.one (proxied)',  base:'https://api.adsb.one',           proxy:true  },
+  { name:'airplanes.live (proxied)', base:'https://api.airplanes.live',proxy:true  },
+  { name:'adsb.fi (proxied)',   base:'https://opendata.adsb.fi/api',   proxy:true  },
 ];
 
 function viewRadius(){
@@ -422,24 +469,49 @@ function viewRadius(){
   return Math.min(Math.round(2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))*0.54),250);
 }
 
-async function tryFetch(url){
-  const ctrl=new AbortController();
-  const tid=setTimeout(()=>ctrl.abort(),10000);
-  try{
-    const res=await fetch(url,{signal:ctrl.signal});
-    clearTimeout(tid);
-    if(!res.ok) return null;
-    const j=await res.json();
-    return(j&&Array.isArray(j.ac))?j:null;
-  }catch(e){clearTimeout(tid);return null;}
+function buildUrl(src, lat, lon, dist) {
+  const direct = `${src.base}/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
+  return src.proxy ? `${PROXY}${encodeURIComponent(direct)}` : direct;
 }
 
-async function probeApis(){
-  const c=map.getCenter();
-  for(const base of API_BASES){
-    const j=await tryFetch(`${base}/v2/lat/${c.lat.toFixed(2)}/lon/${c.lng.toFixed(2)}/dist/25`);
-    if(j!==null){workingApi=base;return base;}
+async function tryFetch(url, label) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(()=>ctrl.abort(), 12000);
+  try {
+    vlog('info', `Trying ${label} …`);
+    const res = await fetch(url, {signal:ctrl.signal, mode:'cors'});
+    clearTimeout(tid);
+    vlog('info', `  → HTTP ${res.status} ${res.statusText}`);
+    if (!res.ok) { vlog('warn', `  → Non-OK status, skipping`); return null; }
+    const j = await res.json();
+    if (j && Array.isArray(j.ac)) {
+      vlog('ok', `  → SUCCESS: ${j.ac.length} aircraft from ${label}`);
+      return j;
+    }
+    vlog('warn', `  → No ac[] array in response`);
+    return null;
+  } catch(e) {
+    clearTimeout(tid);
+    const reason = e.name==='AbortError' ? 'TIMEOUT (12s)' : e.message;
+    vlog('error', `  → FAIL: ${reason}`);
+    return null;
   }
+}
+
+async function probeApis() {
+  const c = map.getCenter();
+  const lat = c.lat.toFixed(2), lon = c.lng.toFixed(2);
+  vlog('info', `Probing ${API_SOURCES.length} API endpoints for lat=${lat} lon=${lon} dist=25nm`);
+  for (const src of API_SOURCES) {
+    const url = buildUrl(src, lat, lon, 25);
+    const j = await tryFetch(url, src.name);
+    if (j !== null) {
+      workingApi = src;
+      vlog('ok', `Working API locked: ${src.name}`);
+      return src;
+    }
+  }
+  vlog('error', 'ALL APIs failed — falling back to demo data');
   return null;
 }
 
@@ -472,7 +544,10 @@ async function fetchViewport(manual){
   isFetching=true; ring(true);
   if(manual) document.getElementById('rbtn').classList.add('spin');
   setStatus('load','Loading…');
-  if(!workingApi) await probeApis();
+  if(!workingApi){
+    vlog('info','No working API cached — probing…');
+    await probeApis();
+  }
   if(!workingApi){
     if(Object.keys(flightMap).length===0) loadDemo();
     setStatus('err','All APIs unreachable — showing demo data');
@@ -482,20 +557,24 @@ async function fetchViewport(manual){
     renderMap(); return;
   }
   const c=map.getCenter(), dist=viewRadius();
-  const json=await tryFetch(`${workingApi}/v2/lat/${c.lat.toFixed(3)}/lon/${c.lng.toFixed(3)}/dist/${dist}`);
+  const url=buildUrl(workingApi, c.lat.toFixed(3), c.lng.toFixed(3), dist);
+  vlog('info',`Fetching viewport: ${workingApi.name} dist=${dist}nm`);
+  const json=await tryFetch(url, workingApi.name);
   if(json!==null){
     const fresh=parseV2(json.ac);
     const freshSet=new Set(fresh.map(f=>f.hex));
     fresh.forEach(f=>{flightMap[f.hex]=f;});
     const bounds=map.getBounds().pad(0.3);
+    let pruned=0;
     Object.keys(flightMap).forEach(hex=>{
       const f=flightMap[hex];
-      if(!freshSet.has(hex)&&!bounds.contains([f.lat,f.lng])) delete flightMap[hex];
+      if(!freshSet.has(hex)&&!bounds.contains([f.lat,f.lng])){delete flightMap[hex];pruned++;}
     });
-    const srcShort=workingApi.replace('https://','').replace('/api','');
-    document.getElementById('srcbadge').textContent=srcShort+' · '+dist+'nm';
+    if(pruned) vlog('info',`Pruned ${pruned} out-of-view aircraft`);
+    document.getElementById('srcbadge').textContent=workingApi.name.split(' ')[0]+' · '+dist+'nm';
     setStatus('ok',`${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${new Date().toLocaleTimeString()}`);
   } else {
+    vlog('warn','Fetch failed — resetting API, will re-probe next cycle');
     workingApi=null;
     setStatus('err','Fetch failed — will retry');
   }
@@ -682,7 +761,98 @@ function startAutoRefresh(){
   autoTimer=setInterval(()=>{if(!selected&&!isFetching)fetchViewport(false);},20000);
 }
 
-fetchViewport(true).then(startAutoRefresh);
+/* ═══════════════════════════════════════════════
+   LOG PANEL TOGGLE
+═══════════════════════════════════════════════ */
+function toggleLog(){
+  const p=document.getElementById('logpanel');
+  const b=document.getElementById('logbtn');
+  p.classList.toggle('hidden');
+  b.style.color=p.classList.contains('hidden')?'#6b6e8a':'#4fa8e8';
+  // Refresh log content when opening
+  if(!p.classList.contains('hidden')){
+    p.querySelector('#loglines').innerHTML=
+      logLines.map(l=>{
+        const col=l.includes('ERROR')||l.includes('FAIL')?'#e85858'
+                 :l.includes('OK')||l.includes('SUCCESS')?'#7dd460'
+                 :l.includes('WARN')?'#e8a040':'#aab0c8';
+        return `<div style="color:${col}">${l}</div>`;
+      }).join('');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   NO-FLY ZONES
+   Sources: ICAO NOTAMs, FAA TFRs, public data
+═══════════════════════════════════════════════ */
+const NFZ = [
+  // ── Active conflict zones ──────────────────
+  {name:'Ukraine airspace (UKFV/UKDV)',  reason:'Active armed conflict — all civil aviation banned since Feb 2022',
+   color:'#e85858', latlngs:[[52.3,22.1],[52.3,40.2],[44.4,40.2],[44.4,22.1]]},
+  {name:'Belarus airspace (UMMV)',        reason:'EU/ICAO advisory — political and safety concerns since 2021',
+   color:'#e85858', latlngs:[[56.2,23.7],[56.2,32.8],[51.2,32.8],[51.2,23.7]]},
+  {name:'Russian airspace (UUWV/URRV)',   reason:'Closed to most western carriers — retaliation for Ukraine sanctions',
+   color:'#e85858', latlngs:[[72,27],[72,180],[42,180],[42,27]]},
+  {name:'Iran airspace (OIIX)',           reason:'Periodic closures for missile activity; ICAO safety advisory',
+   color:'#e8a040', latlngs:[[39.8,44.0],[39.8,63.3],[25.1,63.3],[25.1,44.0]]},
+  {name:'Iraq northern airspace (ORBB)',  reason:'Military operations — restricted altitude bands',
+   color:'#e8a040', latlngs:[[37.4,38.8],[37.4,48.6],[33.0,48.6],[33.0,38.8]]},
+  {name:'Yemen airspace (OYSC)',          reason:'Active conflict — ICAO prohibits civil operations below FL150',
+   color:'#e85858', latlngs:[[19.0,41.5],[19.0,55.7],[11.0,55.7],[11.0,41.5]]},
+  {name:'Libya airspace (HLLL)',          reason:'Active conflict zones — civil aviation restricted',
+   color:'#e85858', latlngs:[[33.2,9.4],[33.2,25.2],[19.5,25.2],[19.5,9.4]]},
+  {name:'Sudan airspace (HSSS)',          reason:'Armed conflict 2023 — ICAO safety advisory',
+   color:'#e85858', latlngs:[[22.2,21.8],[22.2,38.6],[9.4,38.6],[9.4,21.8]]},
+  {name:'North Korea airspace (ZKKP)',    reason:'Prohibited to all foreign civil aviation',
+   color:'#e060e8', latlngs:[[43.0,124.2],[43.0,130.7],[37.7,130.7],[37.7,124.2]]},
+  {name:'Gaza / Southern Israel (LLLL)',  reason:'Active conflict TFR — civil aviation restricted',
+   color:'#e85858', latlngs:[[31.9,34.2],[31.9,34.9],[31.2,34.9],[31.2,34.2]]},
+  // ── Restricted airspace / special use ─────
+  {name:'Washington DC ADIZ (P-56)',      reason:'Presidential restricted airspace (P-56A/B) — no unauthorised flight',
+   color:'#e8a040', latlngs:[[38.95,-77.12],[38.95,-76.98],[38.82,-76.98],[38.82,-77.12]]},
+  {name:'Area 51 / Groom Lake (R-4808)',  reason:'US military restricted airspace — R-4808N, no civil flight',
+   color:'#e8a040', latlngs:[[37.35,-116.05],[37.35,-115.65],[37.1,-115.65],[37.1,-116.05]]},
+  {name:'Buckingham Palace TFR',          reason:'Temporary restricted airspace over Royal residences',
+   color:'#e8a040', latlngs:[[51.52,-0.16],[51.52,-0.11],[51.49,-0.11],[51.49,-0.16]]},
+];
+
+const nfzLayers = [];
+function drawNFZ(){
+  NFZ.forEach(z=>{
+    const poly = L.polygon(z.latlngs, {
+      color: z.color, fillColor: z.color,
+      weight:1.5, opacity:0.9, fillOpacity:0.08,
+      dashArray:'6,4',
+    });
+    poly.bindTooltip(
+      `<b>${z.name}</b><br><span style="color:#e8a040">⚠ Restricted</span><br>${z.reason}`,
+      {sticky:true, direction:'top'}
+    );
+    poly.addTo(map);
+    nfzLayers.push(poly);
+  });
+  vlog('ok',`Drew ${NFZ.length} no-fly zones`);
+}
+
+// Add NFZ toggle button to map
+const nfzBtn = document.createElement('button');
+nfzBtn.id='nfzbtn';
+nfzBtn.title='Toggle no-fly zones';
+nfzBtn.textContent='🚫 NFZ';
+nfzBtn.style.cssText=`position:absolute;top:44px;right:10px;z-index:1000;
+  background:rgba(20,23,32,.88);color:#e85858;border:1px solid #882020;
+  border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;
+  font-family:inherit;backdrop-filter:blur(4px);`;
+let nfzVisible=true;
+nfzBtn.onclick=()=>{
+  nfzVisible=!nfzVisible;
+  nfzLayers.forEach(l=>nfzVisible?map.addLayer(l):map.removeLayer(l));
+  nfzBtn.style.color=nfzVisible?'#e85858':'#6b6e8a';
+  nfzBtn.style.borderColor=nfzVisible?'#882020':'#232636';
+};
+document.getElementById('map').appendChild(nfzBtn);
+
+fetchViewport(true).then(()=>{ drawNFZ(); startAutoRefresh(); });
 </script>
 </body>
 </html>
