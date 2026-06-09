@@ -23,29 +23,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 @keyframes spin{to{transform:rotate(360deg)}}
 #logbtn{font-size:11px;padding:4px 9px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0}
 
-/* ── LOG PANEL — always running, blend in/out ──────────────── */
+/* ── LOG PANEL — always running, toggled via display ────────── */
 #logpanel{
   position:absolute;
   bottom:calc(20vh + 24px);
   left:0;right:0;
   z-index:2000;
-  display:flex;flex-direction:column;
+  display:none;           /* hidden by default — never blocks map */
+  flex-direction:column;
   height:260px;
   background:#0a0b10;
   border-top:1px solid #4fa8e8;
   font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;
   font-size:11px;
   line-height:1.45;
-  /* Blend transition — opacity+transform instead of display:none */
-  opacity:0;
-  pointer-events:none;
-  transform:translateY(8px);
-  transition:opacity .22s ease, transform .22s ease;
 }
 #logpanel.visible{
-  opacity:1;
-  pointer-events:all;
-  transform:translateY(0);
+  display:flex;           /* shown — only when explicitly opened */
 }
 #logpanel.hidden{display:none}
 #log-titlebar{
@@ -335,7 +329,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <button id="fab" onclick="activeDomain==='sea'?deselectVessel():activeDomain==='land'?deselectLand():deselect()">✕ Deselect</button>
 
 <!-- LOG PANEL -->
-<div id="logpanel" class="hidden">
+<div id="logpanel">
   <div id="log-titlebar">
     <span id="log-title">📄 VectorWatch — debug.log</span>
     <div style="display:flex;gap:6px;align-items:center">
@@ -1238,14 +1232,10 @@ function vlog(level, msg){
   logLines.unshift({text: line, color});
   if(logLines.length > LOG_MAX) logLines.length = LOG_MAX;
 
-  // Always update DOM — panel is always running (just hidden from view)
-  // Use requestAnimationFrame to batch rapid-fire log entries
-  if(!vlog._rafPending){
-    vlog._rafPending = true;
-    requestAnimationFrame(()=>{
-      vlog._rafPending = false;
-      _renderLog();
-    });
+  // Update DOM if panel is visible — no RAF needed since display:none hides it
+  const panel = document.getElementById('logpanel');
+  if(panel && panel.classList.contains('visible')){
+    _renderLog();
   }
 }
 
@@ -1270,22 +1260,18 @@ function _escHtml(s){
 function toggleLog(){
   const panel = document.getElementById('logpanel');
   const btn   = document.getElementById('logbtn');
+  const open  = panel.classList.contains('visible');
 
-  // Remove hidden (display:none) first so transition works
-  if(panel.classList.contains('hidden')){
+  if(open){
+    panel.classList.remove('visible');
+    btn.style.color       = '#6b6e8a';
+    btn.style.borderColor = '#232636';
+  } else {
     panel.classList.remove('hidden');
-    // Trigger reflow so transition fires
-    void panel.offsetWidth;
     panel.classList.add('visible');
     btn.style.color       = '#4fa8e8';
     btn.style.borderColor = '#4fa8e8';
     _renderLog();
-  } else if(panel.classList.contains('visible')){
-    panel.classList.remove('visible');
-    btn.style.color       = '#6b6e8a';
-    btn.style.borderColor = '#232636';
-    // After transition completes, restore hidden so it doesn't block map clicks
-    setTimeout(()=>{ panel.classList.add('hidden'); }, 230);
   }
 }
 
