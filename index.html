@@ -506,14 +506,30 @@ document.getElementById('map').appendChild(layerBtn);
 
 // NFZ toggle
 const nfzBtn=document.createElement('button');
-nfzBtn.style.cssText='position:absolute;top:44px;right:10px;z-index:1000;background:rgba(20,23,32,.9);color:#e85858;border:1px solid #882020;border-radius:8px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit';
+nfzBtn.style.cssText='position:absolute;top:44px;right:10px;z-index:1000;background:rgba(20,23,32,.9);color:#6b6e8a;border:1px solid #2a2d42;border-radius:8px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit';
 nfzBtn.textContent='🚫 No-fly zones';
-let nfzVisible=true;
+let nfzVisible=false;
 document.getElementById('map').appendChild(nfzBtn);
 
 map.on('moveend zoomend',()=>{
   clearTimeout(moveTimer);
-  moveTimer=setTimeout(()=>fetchViewport(false),500);
+  if(activeDomain==='air'){
+    moveTimer=setTimeout(()=>fetchViewport(false),500);
+  } else if(activeDomain==='land'){
+    // Auto-detect country from new center and update button
+    const c=map.getCenter();
+    const det=detectCountryFromCenter(c.lat,c.lng);
+    if(det){
+      document.querySelectorAll('.lc').forEach(b=>b.classList.remove('on'));
+      const btn=document.getElementById('lc-'+det.toLowerCase());
+      if(btn) btn.classList.add('on');
+      // Only trigger a full country switch if we moved to a NEW country
+      if(det!==landCountry){
+        landCountry=det;
+        // Fetch is already scheduled by moveend.land handler
+      }
+    }
+  }
 });
 
 /* ═══ PLANE ICON ═══════════════════════════════════════════════ */
@@ -1031,7 +1047,8 @@ function drawNFZ(){
   NFZ.forEach(z=>{
     const p=L.polygon(z.latlngs,{color:z.color,fillColor:z.color,weight:1.5,opacity:0.9,fillOpacity:0.07,dashArray:'6,4'});
     p.bindTooltip(`<b>${z.name}</b><br><span style="color:#e8a040">⚠ Restricted airspace</span><br>${z.reason}`,{sticky:true,direction:'top'});
-    p.addTo(map);nfzLayers.push(p);
+    // NOT added to map — nfzVisible starts false
+    nfzLayers.push(p);
   });
 }
 nfzBtn.onclick=()=>{
@@ -1140,6 +1157,9 @@ function setDomain(domain, el){
   map.off('moveend.land'); map.off('zoomend.land');  // land move listeners
 
   // ── 2. PURGE all markers + data from ALL domains ───────────
+  hideAirCoverage();
+  hideSeaCoverage();
+  hideLandCoverage();
   Object.values(markers).forEach(m=>map.removeLayer(m));
   Object.values(vesselMarkers).forEach(m=>map.removeLayer(m));
   Object.values(landMarkers).forEach(m=>map.removeLayer(m));
@@ -1163,11 +1183,14 @@ function setDomain(domain, el){
 
   // ── 4. START new domain ────────────────────────────────────
   if(domain==='air'){
+    showAirCoverage();
     fetchViewport(true);
   } else if(domain==='sea'){
+    showSeaCoverage();
     startSeaStream();
   } else if(domain==='land'){
     document.getElementById('land-bar').style.display='flex';
+    showLandCoverage();
     startLandPoll();
   }
 }
@@ -1196,6 +1219,8 @@ function startSeaStream(){
   }
   vlog('info','Connecting to aisstream.io WebSocket…');
   setStatus('load','Connecting to AIS stream…');
+  // Show demo data immediately — replaced by live data when WS messages arrive
+  loadSeaDemo(); renderSea();
 
   try {
     aisSocket = new WebSocket('wss://stream.aisstream.io/v0/stream');
@@ -1217,12 +1242,18 @@ function startSeaStream(){
       } catch(e){ /* ignore parse errors */ }
     };
     aisSocket.onerror = (e) => {
-      vlog('error','AIS WebSocket error');
-      setStatus('err','AIS stream error — check key at aisstream.io');
+      vlog('error','AIS WebSocket error — showing demo sea data');
+      if(activeDomain==='sea'){
+        setStatus('err','AIS stream error — showing demo data');
+        if(Object.keys(vesselMap).length===0){ loadSeaDemo(); renderSea(); }
+      }
     };
     aisSocket.onclose = () => {
       vlog('warn','AIS WebSocket closed');
-      if(activeDomain==='sea') setStatus('err','AIS stream disconnected');
+      if(activeDomain==='sea'){
+        setStatus('err','AIS stream disconnected — showing demo data');
+        if(Object.keys(vesselMap).length===0){ loadSeaDemo(); renderSea(); }
+      }
     };
   } catch(e) {
     vlog('error','WebSocket failed: '+e.message);
@@ -1619,8 +1650,8 @@ async function fetchLandVehicles(){
   if(activeDomain!=='land') return; // user switched away during schema load
   if(!ok){
     vlog('warn','Falling back to land demo (protobuf unavailable)');
-    if(Object.keys(landMap).length===0){ loadLandDemo(); renderLand(); }
-    setStatus('err','Protobuf decoder unavailable — showing demo');
+    if(Object.keys(landMap).length===0){ loadLandDemoForCountry(landCountry)||loadLandDemo(); renderLand(); }
+    setStatus('err','Protobuf unavailable — showing demo for '+landCountry);
     document.getElementById('srcbadge').textContent='trafiklab · demo';
     return;
   }
@@ -1672,10 +1703,15 @@ async function fetchLandVehicles(){
     setStatus('ok',`${count} vehicles in view · ${new Date().toLocaleTimeString()}`);
     renderLand();
   } else {
-    vlog('warn','No vehicle positions received — using demo data');
-    if(Object.keys(landMap).length===0){ loadLandDemo(); renderLand(); }
-    setStatus('err','Live positions unavailable — showing demo (CORS/protobuf issue)');
-    document.getElementById('srcbadge').textContent='trafiklab · demo';
+    vlog('warn','No vehicle positions received — using demo data for '+landCountry);
+    // Clear stale markers and load country-appropriate demo
+    Object.values(landMarkers).forEach(m=>map.removeLayer(m));
+    landMarkers={};
+    loadLandDemoForCountry(landCountry);
+    if(Object.keys(landMap).length===0) loadLandDemo();
+    renderLand();
+    setStatus('err',`${LAND_COUNTRY_CONFIG[landCountry]?.flag||''} No live positions — showing demo (CORS or key issue)`);
+    document.getElementById('srcbadge').textContent=landCountry+' · demo';
   }
 }
 
@@ -1930,6 +1966,10 @@ function setLandCountry(code, el, skipFly){
   const cfg = LAND_COUNTRY_CONFIG[code];
   if(!skipFly) map.flyTo(cfg.center, cfg.zoom, {duration:1.0, easeLinearity:.5});
 
+  // Show demo immediately while fetching live data
+  loadLandDemoForCountry(code);
+  renderLand();
+  setStatus('load', `${cfg.flag} ${cfg.name} — fetching live data…`);
   fetchLandVehicles();
 }
 
@@ -1944,9 +1984,24 @@ function autoDetectCountry(){
   const detected = detectCountryFromCenter(c.lat, c.lng);
   if(detected && detected !== landCountry){
     vlog('info', `Auto-detected country: ${detected} (was ${landCountry})`);
-    setLandCountry(detected, null, true); // skipFly=true, user is already there
+    // Update state and button without triggering a separate fetch
+    // (the moveend handler already schedules a fetch via _landMoveTimer)
+    landCountry = detected;
+    document.querySelectorAll('.lc').forEach(b=>b.classList.remove('on'));
+    const btn = document.getElementById('lc-'+detected.toLowerCase());
+    if(btn) btn.classList.add('on');
+    // Fly to new country center
+    const cfg = LAND_COUNTRY_CONFIG[detected];
+    if(cfg) map.flyTo(cfg.center, cfg.zoom, {duration:1.0, easeLinearity:.5});
+    // Clear old markers
+    Object.values(landMarkers).forEach(m=>map.removeLayer(m));
+    landMarkers={}; landMap={};
+    // Show demo immediately
+    loadLandDemoForCountry(detected);
+    renderLand();
+    setStatus('load', `${cfg?.flag||''} Switched to ${cfg?.name||detected} — fetching live data…`);
+    // fetchLandVehicles is already scheduled by _landMoveTimer from moveend
   } else if(!detected){
-    // Outside all countries — show message but keep current data
     setStatus('load', '🌍 Pan to a supported European country for live transit data');
   }
 }
@@ -1956,8 +2011,18 @@ function autoDetectCountry(){
 ════════════════════════════════════════════════════════════ */
 function startLandPoll(){
   // Note: setDomain already did full cleanup before calling this
-  // Initial fetch + auto-detect
-  autoDetectCountry();
+  // Auto-detect country from map center (sets landCountry, no double fetch)
+  const c = map.getCenter();
+  const detected = detectCountryFromCenter(c.lat, c.lng);
+  if(detected && detected !== landCountry){
+    landCountry = detected;
+    const btn = document.getElementById('lc-'+detected.toLowerCase());
+    document.querySelectorAll('.lc').forEach(b=>b.classList.remove('on'));
+    if(btn) btn.classList.add('on');
+    vlog('info','Land auto-detect on start: '+detected);
+  }
+  // Show demo immediately, then fetch live data
+  loadLandDemo(); renderLand();
   fetchLandVehicles();
   // Re-fetch on map move (debounced via the existing moveTimer pattern)
   map.on('moveend.land zoomend.land', ()=>{
@@ -1996,8 +2061,330 @@ function loadLandDemo(){
   document.getElementById('pill').textContent=Object.keys(landMap).length+' vehicles';
 }
 
+
+
+/* ═══ AIR COVERAGE OVERLAY ══════════════════════════════════════
+   ADS-B ground station coverage — good globally where stations
+   exist, gaps over remote oceans and polar regions.
+   Source: community ADS-B networks (adsb.lol, adsb.one, adsb.fi)
+════════════════════════════════════════════════════════════════ */
+let airCoverageLayer = null;
+
+const AIR_COVERAGE = {
+  // Full coverage — dense ADS-B network
+  full: [
+    {name:'Europe',      poly:[[ 34.0,-12.0],[ 34.0, 42.0],[ 72.0, 42.0],[ 72.0,-12.0]]},
+    {name:'North America',poly:[[ 24.0,-130.0],[ 24.0,-60.0],[ 72.0,-60.0],[ 72.0,-130.0]]},
+    {name:'Australia',   poly:[[-45.0, 110.0],[-45.0, 155.0],[-10.0, 155.0],[-10.0, 110.0]]},
+    {name:'Japan',       poly:[[ 24.0, 124.0],[ 24.0, 148.0],[ 46.0, 148.0],[ 46.0, 124.0]]},
+    {name:'East Asia',   poly:[[ 18.0,  98.0],[ 18.0, 136.0],[ 55.0, 136.0],[ 55.0,  98.0]]},
+    {name:'South Asia',  poly:[[ 6.0,  68.0],[ 6.0,  92.0],[ 36.0,  92.0],[ 36.0,  68.0]]},
+    {name:'Middle East', poly:[[ 12.0,  35.0],[ 12.0,  64.0],[ 42.0,  64.0],[ 42.0,  35.0]]},
+    {name:'South Africa',poly:[[-35.0,  16.0],[-35.0,  33.0],[-22.0,  33.0],[-22.0,  16.0]]},
+    {name:'Brazil',      poly:[[-34.0, -74.0],[-34.0, -35.0],[  5.0, -35.0],[  5.0, -74.0]]},
+  ],
+  // Partial coverage — some stations, gaps possible
+  partial: [
+    {name:'Central Asia',   poly:[[36.0, 52.0],[36.0, 88.0],[56.0, 88.0],[56.0, 52.0]]},
+    {name:'Central Africa', poly:[[-5.0,  5.0],[-5.0, 45.0],[15.0, 45.0],[15.0,  5.0]]},
+    {name:'West Africa',    poly:[[ 4.0,-18.0],[ 4.0, 16.0],[20.0, 16.0],[20.0,-18.0]]},
+    {name:'Mexico/C.Am.',   poly:[[8.0,-92.0],[ 8.0,-86.0],[30.0,-86.0],[30.0,-92.0]]},
+    {name:'Argentina',      poly:[[-55.0,-74.0],[-55.0,-52.0],[-22.0,-52.0],[-22.0,-74.0]]},
+    {name:'Russia (west)',  poly:[[ 50.0, 27.0],[ 50.0, 60.0],[ 70.0, 60.0],[ 70.0, 27.0]]},
+    {name:'Scandinavia/Arctic',poly:[[70.0,-5.0],[70.0,40.0],[83.0,40.0],[83.0,-5.0]]},
+    {name:'New Zealand',    poly:[[-48.0,165.0],[-48.0,178.0],[-34.0,178.0],[-34.0,165.0]]},
+  ],
+};
+
+// Gap regions — no or very sparse ADS-B coverage
+const AIR_GAPS = [
+  {name:'Pacific Ocean', note:'No ground stations — satellite ADS-B only',
+   poly:[[ 60.0,-180.0],[ 60.0,-130.0],[-55.0,-130.0],[-55.0,-180.0]]},
+  {name:'Pacific Ocean (central)', note:'Very sparse coverage',
+   poly:[[ 55.0,-178.0],[ 55.0,-150.0],[-50.0,-150.0],[-50.0,-178.0]]},
+  {name:'North Atlantic', note:'MLAT/satellite only over ocean',
+   poly:[[ 45.0,-60.0],[ 45.0,-12.0],[ 65.0,-12.0],[ 65.0,-60.0]]},
+  {name:'South Atlantic', note:'Very sparse — no ground stations',
+   poly:[[-55.0,-45.0],[-55.0,  5.0],[  5.0,  5.0],[  5.0,-45.0]]},
+  {name:'Indian Ocean',  note:'Very sparse coverage',
+   poly:[[-45.0, 50.0],[-45.0,100.0],[ 15.0,100.0],[ 15.0, 50.0]]},
+  {name:'Arctic/Antarctica', note:'No ADS-B infrastructure',
+   poly:[[ 83.0,-180.0],[ 83.0,180.0],[ 90.0,180.0],[ 90.0,-180.0]]},
+];
+
+function showAirCoverage(){
+  if(airCoverageLayer) return;
+  airCoverageLayer = L.layerGroup();
+
+  // World dim base
+  L.rectangle([[-85,-180],[85,180]],{
+    color:'transparent', fillColor:'#0d0f18', fillOpacity:0.35, interactive:false, pane:'tilePane'
+  }).addTo(airCoverageLayer);
+
+  // Full coverage — green
+  AIR_COVERAGE.full.forEach(a=>{
+    L.polygon(a.poly, {color:'#7dd460',fillColor:'#7dd460',weight:1,opacity:0.6,fillOpacity:0.07,interactive:false})
+    .bindTooltip(`<b>${a.name}</b><br><span style="color:#7dd460">✓ Full ADS-B coverage</span>`,{sticky:true})
+    .addTo(airCoverageLayer);
+  });
+
+  // Partial — amber dashed
+  AIR_COVERAGE.partial.forEach(a=>{
+    L.polygon(a.poly, {color:'#e8a040',fillColor:'#e8a040',weight:1,opacity:0.5,fillOpacity:0.05,dashArray:'4,4',interactive:false})
+    .bindTooltip(`<b>${a.name}</b><br><span style="color:#e8a040">◑ Partial coverage</span>`,{sticky:true})
+    .addTo(airCoverageLayer);
+  });
+
+  // Gap zones — red dashed, very subtle
+  AIR_GAPS.forEach(a=>{
+    L.polygon(a.poly, {color:'#e85858',fillColor:'#e85858',weight:0.8,opacity:0.3,fillOpacity:0.03,dashArray:'3,6',interactive:false})
+    .bindTooltip(`<b>${a.name}</b><br><span style="color:#e85858">✗ No/sparse coverage</span><br><span style="color:#3a3d52">${a.note}</span>`,{sticky:true})
+    .addTo(airCoverageLayer);
+  });
+
+  // Legend pill bottom-left
+  L.marker([8,-160],{icon:L.divIcon({
+    html:`<div style="background:rgba(13,15,24,.85);border:1px solid #232636;border-radius:6px;padding:5px 10px;font-size:10px;line-height:1.7;color:#aaa;white-space:nowrap">
+      <span style="color:#7dd460">●</span> Full ADS-B coverage &nbsp;
+      <span style="color:#e8a040">●</span> Partial &nbsp;
+      <span style="color:#e85858">●</span> No ground stations
+    </div>`,
+    className:'', iconAnchor:[0,0]
+  }),interactive:false}).addTo(airCoverageLayer);
+
+  airCoverageLayer.addTo(map);
+}
+function hideAirCoverage(){
+  if(airCoverageLayer){ map.removeLayer(airCoverageLayer); airCoverageLayer=null; }
+}
+
+/* ═══ SEA COVERAGE OVERLAY ══════════════════════════════════════
+   AIS terrestrial receiver coverage — good near coasts and ports,
+   gaps in open ocean (satellite AIS fills some, not all).
+   Source: aisstream.io global network
+════════════════════════════════════════════════════════════════ */
+let seaCoverageLayer = null;
+
+const SEA_COVERAGE = {
+  // Coastal / port coverage — dense AIS receivers
+  coastal: [
+    {name:'European coasts',        poly:[[34.0,-12.0],[34.0,42.0],[72.0,42.0],[72.0,-12.0]]},
+    {name:'US East Coast',          poly:[[25.0,-82.0],[25.0,-65.0],[47.0,-65.0],[47.0,-82.0]]},
+    {name:'US West Coast',          poly:[[32.0,-125.0],[32.0,-117.0],[49.0,-117.0],[49.0,-125.0]]},
+    {name:'Gulf of Mexico',         poly:[[18.0,-98.0],[18.0,-80.0],[31.0,-80.0],[31.0,-98.0]]},
+    {name:'East Asia coasts',       poly:[[20.0, 118.0],[20.0, 148.0],[46.0, 148.0],[46.0, 118.0]]},
+    {name:'Southeast Asia',         poly:[[-5.0,  95.0],[-5.0, 127.0],[22.0, 127.0],[22.0,  95.0]]},
+    {name:'Australia coasts',       poly:[[-40.0,113.0],[-40.0,153.0],[-11.0,153.0],[-11.0,113.0]]},
+    {name:'Persian Gulf',           poly:[[22.0, 48.0],[22.0,  60.0],[30.0,  60.0],[30.0,  48.0]]},
+    {name:'Red Sea / Suez',         poly:[[12.0, 32.0],[12.0,  44.0],[30.0,  44.0],[30.0,  32.0]]},
+    {name:'Caribbean',              poly:[[10.0,-86.0],[10.0, -58.0],[25.0, -58.0],[25.0, -86.0]]},
+    {name:'Mediterranean',          poly:[[30.0, -6.0],[30.0,  37.0],[47.0,  37.0],[47.0,  -6.0]]},
+    {name:'Black Sea',              poly:[[40.5, 27.5],[40.5,  42.0],[47.0,  42.0],[47.0,  27.5]]},
+    {name:'Brazil coast',           poly:[[-26.0,-50.0],[-26.0,-34.0],[  0.0,-34.0],[  0.0,-50.0]]},
+    {name:'South Africa coast',     poly:[[-35.0, 15.0],[-35.0,  34.0],[-25.0,  34.0],[-25.0,  15.0]]},
+    {name:'Indian subcontinent',    poly:[[ 6.0,  66.0],[ 6.0,  81.0],[ 24.0,  81.0],[ 24.0,  66.0]]},
+    {name:'Baltic Sea',             poly:[[53.0,  9.0],[53.0,  30.0],[ 66.0,  30.0],[ 66.0,   9.0]]},
+  ],
+  // Open ocean — very sparse (satellite AIS only, not in free tier)
+  sparse: [
+    {name:'North Atlantic shipping lanes', poly:[[40.0,-65.0],[40.0,-12.0],[62.0,-12.0],[62.0,-65.0]]},
+    {name:'South Atlantic',                poly:[[-45.0,-52.0],[-45.0,20.0],[  5.0,20.0],[  5.0,-52.0]]},
+    {name:'Indian Ocean',                  poly:[[-45.0, 40.0],[-45.0,100.0],[ 15.0,100.0],[ 15.0, 40.0]]},
+  ],
+};
+
+const SEA_GAPS = [
+  {name:'North Pacific',  note:'Open ocean — satellite AIS only (not in free tier)'},
+  {name:'South Pacific',  note:'Very sparse receiver coverage'},
+  {name:'Arctic Ocean',   note:'No AIS infrastructure'},
+];
+
+function showSeaCoverage(){
+  if(seaCoverageLayer) return;
+  seaCoverageLayer = L.layerGroup();
+
+  // World dim
+  L.rectangle([[-85,-180],[85,180]],{
+    color:'transparent', fillColor:'#0d0f18', fillOpacity:0.40, interactive:false, pane:'tilePane'
+  }).addTo(seaCoverageLayer);
+
+  // Coastal coverage — blue
+  SEA_COVERAGE.coastal.forEach(a=>{
+    L.polygon(a.poly, {color:'#4fa8e8',fillColor:'#4fa8e8',weight:1,opacity:0.6,fillOpacity:0.08,interactive:false})
+    .bindTooltip(`<b>${a.name}</b><br><span style="color:#4fa8e8">⚓ Terrestrial AIS coverage</span><br><span style="color:#6b6e8a">Dense receiver network</span>`,{sticky:true})
+    .addTo(seaCoverageLayer);
+  });
+
+  // Sparse shipping lanes — amber
+  SEA_COVERAGE.sparse.forEach(a=>{
+    L.polygon(a.poly, {color:'#e8a040',fillColor:'#e8a040',weight:1,opacity:0.4,fillOpacity:0.04,dashArray:'5,5',interactive:false})
+    .bindTooltip(`<b>${a.name}</b><br><span style="color:#e8a040">◑ Sparse — satellite AIS only</span><br><span style="color:#3a3d52">Free tier: terrestrial only</span>`,{sticky:true})
+    .addTo(seaCoverageLayer);
+  });
+
+  // Legend
+  L.marker([8,-160],{icon:L.divIcon({
+    html:`<div style="background:rgba(13,15,24,.85);border:1px solid #232636;border-radius:6px;padding:5px 10px;font-size:10px;line-height:1.7;color:#aaa;white-space:nowrap">
+      <span style="color:#4fa8e8">●</span> Terrestrial AIS (good) &nbsp;
+      <span style="color:#e8a040">●</span> Open ocean (sparse) &nbsp;
+      <span style="color:#3a3d52">●</span> No coverage
+    </div>`,
+    className:'', iconAnchor:[0,0]
+  }),interactive:false}).addTo(seaCoverageLayer);
+
+  seaCoverageLayer.addTo(map);
+}
+function hideSeaCoverage(){
+  if(seaCoverageLayer){ map.removeLayer(seaCoverageLayer); seaCoverageLayer=null; }
+}
+
+/* ═══ LAND COVERAGE OVERLAY ════════════════════════════════════
+   Shows when Land domain is active:
+   - World greyed out (no data)
+   - Supported countries highlighted in teal
+   - Each country has a tooltip explaining the source
+════════════════════════════════════════════════════════════════ */
+
+let landCoverageLayer = null;
+
+// Country polygons — simplified bounding boxes (good enough for UX)
+// Each entry: [code, [[lat,lng],...], source, status]
+const LAND_COVERAGE_AREAS = [
+  // ── Active (live data) ────────────────────────────────────────
+  {code:'SE', name:'Sweden',       source:'Trafiklab GTFS Sweden 3',      status:'live',
+   color:'#00e8c8',
+   poly:[[55.3,10.5],[55.3,24.2],[69.5,24.2],[69.5,10.5]]},
+  {code:'NO', name:'Norway',       source:'Entur national feed',          status:'live',
+   color:'#00e8c8',
+   poly:[[57.9,4.5],[57.9,31.1],[71.2,31.1],[71.2,4.5]]},
+  {code:'FI', name:'Finland',      source:'Digitransit / HSL',            status:'live',
+   color:'#00e8c8',
+   poly:[[59.7,19.0],[59.7,31.6],[70.1,31.6],[70.1,19.0]]},
+  {code:'DK', name:'Denmark',      source:'Rejseplanen GTFS-RT',          status:'live',
+   color:'#00e8c8',
+   poly:[[54.5,8.0],[54.5,15.3],[57.8,15.3],[57.8,8.0]]},
+  {code:'DE', name:'Germany',      source:'VBB / Mobilithek',             status:'live',
+   color:'#00e8c8',
+   poly:[[47.3,5.9],[47.3,15.0],[55.1,15.0],[55.1,5.9]]},
+  {code:'NL', name:'Netherlands',  source:'OV-API national feed',         status:'live',
+   color:'#00e8c8',
+   poly:[[50.7,3.3],[50.7,7.2],[53.6,7.2],[53.6,3.3]]},
+  {code:'FR', name:'France',       source:'IDFM — Île-de-France region',  status:'partial',
+   color:'#e8a040',
+   poly:[[41.3,-5.2],[41.3,9.6],[51.1,9.6],[51.1,-5.2]]},
+  {code:'CH', name:'Switzerland',  source:'OpenTransportData.swiss',      status:'live',
+   color:'#00e8c8',
+   poly:[[45.8,5.9],[45.8,10.5],[47.8,10.5],[47.8,5.9]]},
+  {code:'AT', name:'Austria',      source:'ÖBB + Wiener Linien',          status:'live',
+   color:'#00e8c8',
+   poly:[[46.4,9.5],[46.4,17.2],[49.0,17.2],[49.0,9.5]]},
+  {code:'BE', name:'Belgium',      source:'iRail NMBS/SNCB',              status:'live',
+   color:'#00e8c8',
+   poly:[[49.5,2.5],[49.5,6.4],[51.5,6.4],[51.5,2.5]]},
+  {code:'IE', name:'Ireland',      source:'Transport for Ireland',        status:'live',
+   color:'#00e8c8',
+   poly:[[51.4,-10.5],[51.4,-6.0],[55.4,-6.0],[55.4,-10.5]]},
+  // ── Partial / key needed ─────────────────────────────────────
+  {code:'PL', name:'Poland',       source:'ZTM Warsaw (partial)',         status:'partial',
+   color:'#e8a040',
+   poly:[[49.0,14.1],[49.0,24.2],[54.9,24.2],[54.9,14.1]]},
+  {code:'CZ', name:'Czechia',      source:'Prague PID (partial)',         status:'partial',
+   color:'#e8a040',
+   poly:[[48.5,12.1],[48.5,18.9],[51.1,18.9],[51.1,12.1]]},
+  {code:'ES', name:'Spain',        source:'EMT Madrid (partial)',         status:'partial',
+   color:'#e8a040',
+   poly:[[36.0,-9.3],[36.0,4.3],[43.8,4.3],[43.8,-9.3]]},
+  {code:'IT', name:'Italy',        source:'GTT Turin / ATAC Rome (partial)',status:'partial',
+   color:'#e8a040',
+   poly:[[36.5,6.6],[36.5,18.5],[47.1,18.5],[47.1,6.6]]},
+  {code:'HU', name:'Hungary',      source:'BKK Budapest (partial)',       status:'partial',
+   color:'#e8a040',
+   poly:[[45.7,16.1],[45.7,22.9],[48.6,22.9],[48.6,16.1]]},
+];
+
+function showLandCoverage(){
+  if(landCoverageLayer) return; // already shown
+  landCoverageLayer = L.layerGroup();
+
+  // Step 1: Dark overlay for the entire world (no data everywhere else)
+  // Use a large rectangle minus the supported areas (inverted polygon)
+  // Simplest approach: one big world rectangle at low opacity
+  L.rectangle([[-85,-180],[85,180]], {
+    color:'transparent',
+    fillColor:'#0d0f18',
+    fillOpacity:0.55,
+    interactive:false,
+    pane:'tilePane',  // behind everything
+  }).addTo(landCoverageLayer);
+
+  // Step 2: Draw each country polygon
+  LAND_COVERAGE_AREAS.forEach(area => {
+    const isLive    = area.status === 'live';
+    const isPartial = area.status === 'partial';
+    const borderCol = isLive ? '#00e8c8' : '#e8a040';
+    const fillCol   = isLive ? '#00e8c8' : '#e8a040';
+    const fillOp    = isLive ? 0.08 : 0.05;
+    const borderOp  = isLive ? 0.7  : 0.5;
+
+    const badge = isLive
+      ? `<span style="color:#00e8c8;font-weight:600">✓ Live data</span>`
+      : `<span style="color:#e8a040;font-weight:600">◑ Partial coverage</span>`;
+
+    L.polygon(area.poly.map(([la,ln])=>[la,ln]), {
+      color:       borderCol,
+      fillColor:   fillCol,
+      weight:      1.5,
+      opacity:     borderOp,
+      fillOpacity: fillOp,
+      dashArray:   isPartial ? '5,4' : null,
+      interactive: true,
+    })
+    .bindTooltip(
+      `<b>${area.name}</b> ${badge}<br>` +
+      `<span style="color:#6b6e8a">Source:</span> ${area.source}<br>` +
+      `<span style="font-size:10px;color:#3a3d52">Click country button above to load</span>`,
+      {sticky:true, direction:'top', className:''}
+    )
+    .on('click', () => {
+      // Clicking a country polygon selects that country
+      const btn = document.getElementById('lc-'+area.code.toLowerCase());
+      if(btn) setLandCountry(area.code, btn, false);
+    })
+    .addTo(landCoverageLayer);
+  });
+
+  // Step 3: "No data" label for rest of world regions
+  const noDataRegions = [
+    [20,  -100, 'North America — no free open API'],
+    [-15, -55,  'South America — no free open API'],
+    [2,   20,   'Africa — no free open API'],
+    [35,  100,  'Asia — no free open API'],
+    [-30, 135,  'Australia / Pacific — no free open API'],
+  ];
+  noDataRegions.forEach(([lat, lng, label]) => {
+    L.marker([lat, lng], {
+      icon: L.divIcon({
+        html: `<div style="background:rgba(13,15,24,.75);border:1px solid #2a2d42;border-radius:6px;padding:3px 8px;font-size:10px;color:#3a3d52;white-space:nowrap">${label}</div>`,
+        className: '',
+        iconAnchor: [80, 10],
+      }),
+      interactive: false,
+      zIndexOffset: -1000,
+    }).addTo(landCoverageLayer);
+  });
+
+  landCoverageLayer.addTo(map);
+}
+
+function hideLandCoverage(){
+  if(landCoverageLayer){
+    map.removeLayer(landCoverageLayer);
+    landCoverageLayer = null;
+  }
+}
+
 /* ═══ INIT ═════════════════════════════════════════════════════ */
-fetchViewport(true).then(()=>{drawNFZ();startAutoRefresh();});
+fetchViewport(true).then(()=>{drawNFZ();showAirCoverage();startAutoRefresh();});
 vlog('ok','VectorWatch initialised — Air + Sea domains active');
 </script>
 </body>
