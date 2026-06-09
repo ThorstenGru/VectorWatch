@@ -1131,43 +1131,39 @@ function locateMe(){
 function setDomain(domain, el){
   if(activeDomain === domain) return;
   const prev = activeDomain;
-  activeDomain = domain;
 
-  // ── 1. Update tab highlight ────────────────────────────────
-  document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
+  // ── 1. STOP all running sources ────────────────────────────
+  clearInterval(autoTimer); autoTimer=null;   // air auto-refresh
+  if(aisSocket){ aisSocket.close(); aisSocket=null; } // sea WebSocket
+  if(landTimer){ clearInterval(landTimer); landTimer=null; } // land poll
+  clearTimeout(window._landMoveTimer);
+  map.off('moveend.land'); map.off('zoomend.land');  // land move listeners
 
-  // ── 2. STOP everything from the previous domain ────────────
-  clearInterval(autoTimer); autoTimer=null;  // stop air auto-refresh
-  stopSeaStream();                            // close WebSocket, stop sea push
-  stopLandPoll();                             // stop land timer + move listeners
-
-  // ── 3. PURGE ALL markers and data from ALL domains ─────────
-  // Air markers
+  // ── 2. PURGE all markers + data from ALL domains ───────────
   Object.values(markers).forEach(m=>map.removeLayer(m));
-  markers={}; flightMap={};
-  // Sea markers
   Object.values(vesselMarkers).forEach(m=>map.removeLayer(m));
-  vesselMarkers={}; vesselMap={};
-  // Land markers
   Object.values(landMarkers).forEach(m=>map.removeLayer(m));
+  markers={}; flightMap={};
+  vesselMarkers={}; vesselMap={};
   landMarkers={}; landMap={};
-  // Route line
   clearRoute();
-  // Reset UI
+
+  // ── 3. Reset UI ────────────────────────────────────────────
+  activeDomain = domain;   // SET AFTER cleanup so guards don't fire prematurely
   selected=null;
   document.getElementById('detail').classList.remove('on');
   document.getElementById('fab').className='';
   document.getElementById('pill').textContent='—';
   document.getElementById('srcbadge').textContent='—';
   document.getElementById('land-bar').style.display='none';
+  document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
 
   vlog('info', `Domain: ${prev} → ${domain}`);
 
-  // ── 4. START the new domain ────────────────────────────────
+  // ── 4. START new domain ────────────────────────────────────
   if(domain==='air'){
     fetchViewport(true);
-    // autoRefresh re-started inside fetchViewport via startAutoRefresh()
   } else if(domain==='sea'){
     startSeaStream();
   } else if(domain==='land'){
@@ -1189,7 +1185,7 @@ function getBoundingBox(){
 }
 
 function startSeaStream(){
-  stopSeaStream();
+  // Note: setDomain already closed any existing socket before calling this
   if(!AISSTREAM_KEY){
     vlog('warn','No AISstream key — showing sea demo data. Get a free key at aisstream.io');
     setStatus('load','Sea demo mode — add AISSTREAM_KEY for live data');
@@ -1545,7 +1541,7 @@ message Position {
 }
 
 // ── FETCH + DECODE a single operator's vehiclepositions.pb ────
-async function fetchOperatorPositions(operator){
+async function fetchOperatorPositions(operator, overrideUrl){
   // Try GTFS Sweden 3 first (national feed) then Regional
   const urls = [
     // GTFS Sweden 3 Realtime (all operators in one feed — only needs 1 fetch)
@@ -1620,6 +1616,7 @@ async function fetchLandVehicles(){
     return;
   }
   const ok = await loadProtobufSchema();
+  if(activeDomain!=='land') return; // user switched away during schema load
   if(!ok){
     vlog('warn','Falling back to land demo (protobuf unavailable)');
     if(Object.keys(landMap).length===0){ loadLandDemo(); renderLand(); }
@@ -1628,10 +1625,12 @@ async function fetchLandVehicles(){
     return;
   }
 
-  setStatus('load','Fetching Sweden vehicle positions…');
-  vlog('info','Fetching GTFS-RT Sweden3 vehiclepositions.pb…');
+  const cfg2 = LAND_COUNTRY_CONFIG[landCountry]; // re-read in case country changed
+  const fetchUrl = cfg2?.primaryUrl || cfg2?.url || cfg.primaryUrl || cfg.url;
+  setStatus('load',`Fetching ${cfg2?.flag||''} ${cfg2?.name||landCountry} vehicle positions…`);
+  vlog('info',`GTFS-RT fetch: ${fetchUrl.slice(0,60)}…`);
 
-  const vehicles = await fetchOperatorPositions('sweden');
+  const vehicles = await fetchOperatorPositions(landCountry, fetchUrl);
 
   // IE returns JSON not protobuf
   if(cfg.api==='gtfs_rt_json' && vehicles.length===0){
@@ -1657,6 +1656,7 @@ async function fetchLandVehicles(){
     }catch(e){ vlog('warn','JSON fetch failed: '+e.message); }
   }
 
+  if(activeDomain!=='land') return; // switched away during fetch
   if(vehicles.length > 0){
     // Merge into landMap
     vehicles.forEach(v=>{ if(v.id) landMap[v.id]=v; });
@@ -1955,10 +1955,10 @@ function autoDetectCountry(){
    POLL CONTROL
 ════════════════════════════════════════════════════════════ */
 function startLandPoll(){
-  stopLandPoll();
+  // Note: setDomain already did full cleanup before calling this
   // Initial fetch + auto-detect
   autoDetectCountry();
-  if(Object.keys(landMap).length === 0) fetchLandVehicles();
+  fetchLandVehicles();
   // Re-fetch on map move (debounced via the existing moveTimer pattern)
   map.on('moveend.land zoomend.land', ()=>{
     autoDetectCountry();
