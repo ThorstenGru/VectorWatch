@@ -726,11 +726,37 @@ function planeIcon(hdg,color,sz,op){
   });
 }
 
-/* ═══ PROXIES ══════════════════════════════════════════════════ */
-const PROXIES=[
-  u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-  u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  u=>`https://thingproxy.freeboard.io/fetch/${u}`,
+/* ═══ PROXIES ═══════════════════════════════════════════════════
+   Priority order:
+   1. Netlify Function — runs on AWS Lambda, fresh IPs, passes GTFS-RT auth
+      URL auto-detected from current page origin when hosted on Netlify.
+   2. corsproxy.io — fallback (works for air, blocked for most GTFS-RT)
+   3. allorigins.win — last resort
+════════════════════════════════════════════════════════════════ */
+
+// Auto-detect Netlify deployment — works on *.netlify.app and custom domains
+// connected via Netlify. On github.io this is empty → falls back to corsproxy.
+const NETLIFY_ORIGIN = (() => {
+  const h = location.hostname;
+  if (h.endsWith('.netlify.app')) return location.origin;
+  // Custom domain via Netlify? Set manually here if needed:
+  // if (h === 'yourdomain.com') return 'https://yourdomain.com';
+  return '';
+})();
+
+const NETLIFY_PROXY = u => NETLIFY_ORIGIN
+  ? `${NETLIFY_ORIGIN}/.netlify/functions/gtfs-proxy?url=${encodeURIComponent(u)}`
+  : null;
+
+const _cfProxyFn = NETLIFY_PROXY; // alias — used elsewhere in code
+const CF_PROXY   = NETLIFY_PROXY; // alias
+const CORSProxy  = u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`;
+const AOProxy    = u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
+
+const PROXIES = [
+  ...(NETLIFY_ORIGIN ? [NETLIFY_PROXY] : []),
+  CORSProxy,
+  AOProxy,
 ];
 const API_BASES=[
   {name:'adsb.lol',       base:'https://api.adsb.lol'},
@@ -1025,8 +1051,8 @@ async function enrichAircraft(hex,callsign){
   acCache[hex]={_done:false};
   vlog('info',`Enriching ${hex} / ${callsign||'?'}`);
   try{
-    const infoUrl=PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
-    const imgUrl=PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
+    const infoUrl=NETLIFY_PROXY('https://hexdb.io/api/v1/aircraft/'+hex)||PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
+    const imgUrl=NETLIFY_PROXY('https://hexdb.io/hex-image-thumb?hex='+hex)||PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
     const [ir,imgr]=await Promise.all([fetch(infoUrl).catch(()=>null),fetch(imgUrl).catch(()=>null)]);
     if(ir&&ir.ok){
       const d=await ir.json();
@@ -1038,7 +1064,7 @@ async function enrichAircraft(hex,callsign){
   if(callsign&&callsign.trim()&&callsign!=='?'){
     try{
       const cs=callsign.trim().toUpperCase();
-      const rUrl=PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
+      const rUrl=NETLIFY_PROXY('https://api.adsbdb.com/v0/callsign/'+cs)||PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
       vlog('info','  adsbdb route for '+cs);
       const rr=await fetch(rUrl);
       if(rr.ok){
@@ -2037,11 +2063,14 @@ async function fetchOperatorPositions(operator, overrideUrl){
 
   // Try direct first — GTFS-RT APIs send CORS headers for browser origins.
   // Proxies are fallback. All responses may be gzip-encoded — decompress first.
+  // Build attempt list — Netlify function first, then fallbacks
+  const netlifyUrl = NETLIFY_PROXY(targetUrl);
   const attempts = [
-    {label:'direct',     url: targetUrl},
-    {label:'corsproxy',  url: `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`},
-    {label:'allorigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`},
-  ];
+    netlifyUrl ? {label:'netlify', url: netlifyUrl} : null,
+    {label:'direct',    url: targetUrl},
+    {label:'corsproxy', url: `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`},
+    {label:'allorigins',url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`},
+  ].filter(Boolean);
 
   for(const attempt of attempts){
     try{
@@ -2162,8 +2191,9 @@ async function fetchLandVehicles(){
     try{
       const jsonUrl = cfg.primaryUrl || cfg.url;
       const ctrl2=new AbortController(); const tid2=setTimeout(()=>ctrl2.abort(),8000);
-      for(let pi=0;pi<PROXIES.length;pi++){
-        const res=await fetch(PROXIES[pi](jsonUrl),{signal:ctrl2.signal}).catch(()=>null);
+      const irishProxies=[NETLIFY_PROXY(jsonUrl),CORSProxy(jsonUrl),AOProxy(jsonUrl)].filter(Boolean);
+      for(let pi=0;pi<irishProxies.length;pi++){
+        const res=await fetch(irishProxies[pi],{signal:ctrl2.signal}).catch(()=>null);
         if(res&&res.ok){
           clearTimeout(tid2);
           const j=await res.json();
