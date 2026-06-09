@@ -690,6 +690,7 @@ function onSearch(){query=document.getElementById('search').value.trim();renderM
 
 /* ═══ RENDER MAP ═══════════════════════════════════════════════ */
 function renderMap(){
+  if(activeDomain !== 'air') return;   // never render air markers in other domains
   const vis=filtered(),visSet=new Set(vis.map(f=>f.hex));
   Object.keys(markers).forEach(hex=>{
     const keep=flightMap[hex]&&(visSet.has(hex)||(selected&&flightMap[hex]?.id===selected));
@@ -1129,31 +1130,48 @@ function locateMe(){
 /* ═══ DOMAIN SWITCHER ════════════════════════════════════════ */
 function setDomain(domain, el){
   if(activeDomain === domain) return;
+  const prev = activeDomain;
   activeDomain = domain;
+
+  // ── 1. Update tab highlight ────────────────────────────────
   document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));
   el.classList.add('on');
 
-  // Clear current markers
-  Object.values(markers).forEach(m=>map.removeLayer(m)); markers={};
-  Object.values(vesselMarkers).forEach(m=>map.removeLayer(m)); vesselMarkers={};
-  Object.values(landMarkers).forEach(m=>map.removeLayer(m)); landMarkers={};
+  // ── 2. STOP everything from the previous domain ────────────
+  clearInterval(autoTimer); autoTimer=null;  // stop air auto-refresh
+  stopSeaStream();                            // close WebSocket, stop sea push
+  stopLandPoll();                             // stop land timer + move listeners
+
+  // ── 3. PURGE ALL markers and data from ALL domains ─────────
+  // Air markers
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  markers={}; flightMap={};
+  // Sea markers
+  Object.values(vesselMarkers).forEach(m=>map.removeLayer(m));
+  vesselMarkers={}; vesselMap={};
+  // Land markers
+  Object.values(landMarkers).forEach(m=>map.removeLayer(m));
+  landMarkers={}; landMap={};
+  // Route line
+  clearRoute();
+  // Reset UI
   selected=null;
   document.getElementById('detail').classList.remove('on');
   document.getElementById('fab').className='';
-
+  document.getElementById('pill').textContent='—';
+  document.getElementById('srcbadge').textContent='—';
   document.getElementById('land-bar').style.display='none';
+
+  vlog('info', `Domain: ${prev} → ${domain}`);
+
+  // ── 4. START the new domain ────────────────────────────────
   if(domain==='air'){
-    vlog('info','Switched to AIR domain');
-    stopSeaStream(); stopLandPoll();
     fetchViewport(true);
+    // autoRefresh re-started inside fetchViewport via startAutoRefresh()
   } else if(domain==='sea'){
-    vlog('info','Switched to SEA domain');
-    clearInterval(autoTimer); stopLandPoll();
     startSeaStream();
   } else if(domain==='land'){
-    vlog('info','Switched to LAND domain (Sweden transit)');
     document.getElementById('land-bar').style.display='flex';
-    clearInterval(autoTimer); stopSeaStream();
     startLandPoll();
   }
 }
@@ -1255,6 +1273,7 @@ function handleAISMessage(msg){
 }
 
 function renderVessel(mmsi){
+  if(activeDomain !== 'sea') return;   // never render sea markers in other domains
   const v = vesselMap[mmsi];
   if(!v || v.lat==null) return;
   const tinfo  = classifyVessel(v.typeCode||0);
@@ -1662,6 +1681,7 @@ async function fetchLandVehicles(){
 
 // ── RENDER ────────────────────────────────────────────────────
 function renderLand(){
+  if(activeDomain !== 'land') return;  // never render land markers in other domains
   Object.keys(landMarkers).forEach(id=>{
     if(!landMap[id]){ map.removeLayer(landMarkers[id]); delete landMarkers[id]; }
   });
