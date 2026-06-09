@@ -147,6 +147,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .lc{font-size:11px;padding:3px 9px;border-radius:12px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .lc:hover{color:#aaa}
 .lc.on{background:#141e30;border-color:#4fa8e8;color:#c8cce8}
+/* Coverage info panel */
+#cov-panel{position:absolute;top:100px;right:12px;z-index:1001;background:rgba(13,15,24,.94);border:1px solid #232636;border-radius:10px;padding:12px 14px;max-width:240px;font-size:11px;line-height:1.6;color:#aab0c8;display:none}
+#cov-panel.on{display:block}
+#cov-panel h4{font-size:12px;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+#cov-panel .cv-row{display:flex;align-items:flex-start;gap:6px;margin-bottom:4px}
+#cov-panel .cv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
+#cov-panel .cv-text{color:#8a90a8;font-size:10px;line-height:1.5}
+#cov-panel .cv-note{margin-top:8px;padding-top:8px;border-top:1px solid #1e2130;font-size:10px;color:#45485e;line-height:1.5}
+#cov-panel .cv-src{color:#4fa8e8;font-size:10px}
 @media(max-width:520px){
   .d-stats{grid-template-columns:repeat(2,1fr)}
   .d-fields{grid-template-columns:1fr 1fr}
@@ -197,6 +206,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <div id="map"><div id="fetchring"></div></div>
+
+<!-- Coverage explanation panel — shown when a coverage overlay is active -->
+<div id="cov-panel"></div>
   <div id="sbar"><span id="smsg">Initialising…</span><span id="srcbadge">—</span></div>
 </div>
 
@@ -1160,6 +1172,7 @@ function setDomain(domain, el){
   hideAirCoverage();
   hideSeaCoverage();
   hideLandCoverage();
+  hideCoveragePanel();
   Object.values(markers).forEach(m=>map.removeLayer(m));
   Object.values(vesselMarkers).forEach(m=>map.removeLayer(m));
   Object.values(landMarkers).forEach(m=>map.removeLayer(m));
@@ -1183,14 +1196,14 @@ function setDomain(domain, el){
 
   // ── 4. START new domain ────────────────────────────────────
   if(domain==='air'){
-    showAirCoverage();
+    showAirCoverage(); showCoveragePanel('air');
     fetchViewport(true);
   } else if(domain==='sea'){
-    showSeaCoverage();
+    showSeaCoverage(); showCoveragePanel('sea');
     startSeaStream();
   } else if(domain==='land'){
     document.getElementById('land-bar').style.display='flex';
-    showLandCoverage();
+    showLandCoverage(); showCoveragePanel('land');
     startLandPoll();
   }
 }
@@ -1201,6 +1214,17 @@ function setDomain(domain, el){
    Falls back to demo data if no key / connection fails
 ══════════════════════════════════════════════════════════════ */
 const AISSTREAM_KEY = '35edfaad9acb852a84064009604a05bccb912dac'; // aisstream.io
+
+function sendAISSubscription(){
+  if(!aisSocket || aisSocket.readyState !== WebSocket.OPEN) return;
+  const sub = {
+    APIKey: AISSTREAM_KEY,
+    BoundingBoxes: [getBoundingBox()],
+    FilterMessageTypes: ['PositionReport','ShipStaticData'],
+  };
+  aisSocket.send(JSON.stringify(sub));
+  vlog('info',`AIS subscribed: bbox ${JSON.stringify(getBoundingBox())}`);
+}
 
 function getBoundingBox(){
   const b = map.getBounds().pad(0.05);
@@ -1226,14 +1250,16 @@ function startSeaStream(){
     aisSocket = new WebSocket('wss://stream.aisstream.io/v0/stream');
     aisSocket.onopen = () => {
       vlog('ok','AIS WebSocket connected');
-      const sub = {
-        APIKey: AISSTREAM_KEY,
-        BoundingBoxes: [getBoundingBox()],
-        FilterMessageTypes: ['PositionReport','ShipStaticData'],
-      };
-      aisSocket.send(JSON.stringify(sub));
+      sendAISSubscription();
       setStatus('ok','AIS stream connected · '+new Date().toLocaleTimeString());
       document.getElementById('srcbadge').textContent='aisstream.io · live';
+      // Re-subscribe when user pans/zooms to cover new area
+      map.on('moveend.sea zoomend.sea', ()=>{
+        if(activeDomain==='sea' && aisSocket && aisSocket.readyState===WebSocket.OPEN){
+          vlog('info','Sea viewport changed — re-subscribing AIS');
+          sendAISSubscription();
+        }
+      });
     };
     aisSocket.onmessage = (evt) => {
       try {
@@ -1262,6 +1288,7 @@ function startSeaStream(){
 }
 
 function stopSeaStream(){
+  map.off('moveend.sea'); map.off('zoomend.sea');
   if(aisSocket){ aisSocket.close(); aisSocket=null; }
 }
 
@@ -1336,18 +1363,60 @@ function renderSea(){
 
 /* ── Sea Demo Data ──────────────────────────────────────────── */
 function loadSeaDemo(){
-  const demo = [
-    {mmsi:'219025158',name:'MAERSK DENALI',  typeCode:70,lat:56.2,lng:10.5,sog:12,cog:180,hdg:180,navstat:0,callsign:'OXVC2',dest:'NLRTM'},
-    {mmsi:'304010917',name:'EVER GIVEN',     typeCode:71,lat:51.9,lng:4.2, sog:8, cog:270,hdg:270,navstat:0,callsign:'VRPL8',dest:'DEHAM'},
-    {mmsi:'636091415',name:'NORDIC FIGHTER', typeCode:80,lat:57.7,lng:11.8,sog:0, cog:0,  hdg:0,  navstat:5,callsign:'A8EI5',dest:'SESOE'},
-    {mmsi:'244730788',name:'OCEAN FREEDOM',  typeCode:30,lat:54.1,lng:8.7, sog:5, cog:120,hdg:120,navstat:7,callsign:'PH7765',dest:''},
-    {mmsi:'219463000',name:'CROWN SEAWAYS',  typeCode:60,lat:57.0,lng:10.6,sog:16,cog:10, hdg:10, navstat:0,callsign:'OUHI2',dest:'DKFRE'},
-    {mmsi:'227336560',name:'MV ATLANTIQUE',  typeCode:69,lat:47.2,lng:-2.2,sog:18,cog:270,hdg:270,navstat:0,callsign:'FNVY',dest:'GBSOU'},
-    {mmsi:'538009381',name:'NAVIOS AZIMUTH', typeCode:70,lat:36.1,lng:5.5, sog:14,cog:90, hdg:90, navstat:0,callsign:'V7WM4',dest:'CNMOH'},
-    {mmsi:'352002493',name:'NORDIC BREEZE',  typeCode:52,lat:55.6,lng:12.6,sog:3, cog:45, hdg:45, navstat:0,callsign:'H9EF',dest:'DKCOPN'},
-    {mmsi:'265797690',name:'SAR RESCUE 001', typeCode:51,lat:57.4,lng:11.2,sog:22,cog:310,hdg:310,navstat:3,callsign:'SMAB',dest:'INCIDENT'},
-  ];
-  demo.forEach(v=>{vesselMap[v.mmsi]=v;});
+  // 40+ vessels spread across major shipping lanes + ports worldwide
+  [
+    // ── North Sea / Baltic ──────────────────────────────────
+    {mmsi:'219025158',name:'MAERSK DENALI',   typeCode:70,lat:56.15,lng:10.52,sog:12.4,cog:178,hdg:180,navstat:0,callsign:'OXVC2', dest:'NLRTM'},
+    {mmsi:'236112878',name:'CMA CGM SEINE',   typeCode:71,lat:55.62,lng: 7.40,sog:14.1,cog:270,hdg:268,navstat:0,callsign:'MJWT4', dest:'DEHAM'},
+    {mmsi:'304010917',name:'EVER GIVEN',      typeCode:71,lat:53.55,lng: 8.60,sog: 0.0,cog:  0,hdg:  0,navstat:5,callsign:'VRPL8', dest:'DEHAM'},
+    {mmsi:'244730788',name:'OCEAN FREEDOM',   typeCode:30,lat:54.12,lng: 8.71,sog: 4.8,cog:120,hdg:122,navstat:7,callsign:'PH7765',dest:''},
+    {mmsi:'219463000',name:'CROWN SEAWAYS',   typeCode:60,lat:57.02,lng:10.58,sog:16.2,cog: 10,hdg: 12,navstat:0,callsign:'OUHI2', dest:'DKFRE'},
+    {mmsi:'265535890',name:'STENA GERMANICA', typeCode:60,lat:57.71,lng:11.94,sog:17.0,cog:270,hdg:272,navstat:0,callsign:'SFXK',  dest:'KIELL'},
+    {mmsi:'230907000',name:'FINNMASTER',      typeCode:70,lat:60.12,lng:24.96,sog: 8.5,cog: 45,hdg: 46,navstat:0,callsign:'OJBF4', dest:'HELHKI'},
+    {mmsi:'248551000',name:'MSC ALBA',        typeCode:71,lat:57.90,lng: 5.00,sog:19.2,cog:162,hdg:160,navstat:0,callsign:'9HA3456',dest:'GBSOU'},
+    // ── English Channel / Atlantic ──────────────────────────
+    {mmsi:'227336560',name:'MV ATLANTIQUE',   typeCode:69,lat:47.20,lng:-2.20,sog:18.0,cog:270,hdg:268,navstat:0,callsign:'FNVY',  dest:'GBSOU'},
+    {mmsi:'311042300',name:'BRITANNIA',       typeCode:60,lat:50.80,lng:-1.10,sog:22.0,cog: 90,hdg: 92,navstat:0,callsign:'ZCEF7', dest:'FRHAV'},
+    {mmsi:'538009381',name:'NAVIOS AZIMUTH',  typeCode:70,lat:36.10,lng: 5.45,sog:14.0,cog: 88,hdg: 90,navstat:0,callsign:'V7WM4', dest:'CNMOH'},
+    {mmsi:'636091415',name:'NORDIC FIGHTER',  typeCode:80,lat:57.72,lng:11.84,sog: 0.0,cog:  0,hdg:  0,navstat:5,callsign:'A8EI5', dest:'SESOE'},
+    // ── Mediterranean ───────────────────────────────────────
+    {mmsi:'209526000',name:'MSC FIAMMA',      typeCode:71,lat:37.95,lng:23.55,sog:11.2,cog: 45,hdg: 46,navstat:0,callsign:'5BQP2', dest:'GRPIR'},
+    {mmsi:'248120000',name:'COSTA DIADEMA',   typeCode:60,lat:43.62,lng: 7.18,sog: 0.0,cog:  0,hdg:160,navstat:5,callsign:'9HA2177',dest:'ITMIL'},
+    {mmsi:'229413000',name:'VALLETTA',        typeCode:80,lat:35.90,lng:14.51,sog: 0.0,cog:  0,hdg:  0,navstat:1,callsign:'9H9901',dest:''},
+    {mmsi:'247318900',name:'TIRRENIA AUDACE', typeCode:60,lat:40.65,lng:14.27,sog:14.5,cog:220,hdg:218,navstat:0,callsign:'IQFS',  dest:'ITPAL'},
+    // ── Persian Gulf / Red Sea ──────────────────────────────
+    {mmsi:'338234530',name:'MINERVA CLARA',   typeCode:80,lat:26.20,lng:56.40,sog: 9.0,cog:315,hdg:314,navstat:0,callsign:'WDG8291',dest:'SAJUB'},
+    {mmsi:'563056700',name:'EVER ALOT',       typeCode:71,lat:25.00,lng:57.20,sog:12.5,cog:230,hdg:232,navstat:0,callsign:'9V9892',dest:'SGSIN'},
+    {mmsi:'636016875',name:'PACIFIC INAGO',   typeCode:80,lat:12.60,lng:43.50,sog:14.2,cog:155,hdg:156,navstat:0,callsign:'A8KT2', dest:'SADMM'},
+    {mmsi:'477348500',name:'OOCL HONG KONG',  typeCode:71,lat:22.30,lng:60.10,sog:16.0,cog: 75,hdg: 74,navstat:0,callsign:'VRPM4', dest:'CNSHA'},
+    // ── Indian Ocean ────────────────────────────────────────
+    {mmsi:'218510000',name:'COSCO SHIPPING',  typeCode:70,lat:-5.00,lng:72.50,sog:18.5,cog: 85,hdg: 84,navstat:0,callsign:'DTBF5', dest:'SGSIN'},
+    {mmsi:'249806000',name:'GLENCORE SPIRIT', typeCode:80,lat:12.00,lng:65.00,sog:14.0,cog:115,hdg:114,navstat:0,callsign:'9HFB6', dest:'INMUN'},
+    // ── SE Asia / Strait of Malacca ─────────────────────────
+    {mmsi:'566838000',name:'TRITON COURAGE',  typeCode:71,lat: 1.25,lng:103.85,sog:12.0,cog:330,hdg:328,navstat:0,callsign:'9V2834',dest:'SGSIN'},
+    {mmsi:'352719000',name:'MAERSK KURE',     typeCode:71,lat: 3.80,lng:103.60,sog:15.5,cog: 50,hdg: 52,navstat:0,callsign:'3E8PX5',dest:'CNSHA'},
+    {mmsi:'477841800',name:'YANG MING EMINENCE',typeCode:71,lat: 1.10,lng:104.30,sog:13.0,cog:125,hdg:126,navstat:0,callsign:'VRQH9',dest:'MYPKG'},
+    // ── East Asia ───────────────────────────────────────────
+    {mmsi:'477219600',name:'EVER GIFTED',     typeCode:71,lat:22.32,lng:113.92,sog: 0.0,cog:  0,hdg: 45,navstat:5,callsign:'VRPK5', dest:''},
+    {mmsi:'371264000',name:'CHANG FENG',      typeCode:70,lat:29.95,lng:122.10,sog:11.0,cog: 30,hdg: 32,navstat:0,callsign:'3E2B9', dest:'CNSHA'},
+    {mmsi:'338237958',name:'MATSON MAUI',     typeCode:70,lat:21.30,lng:-157.90,sog: 0.0,cog: 0,hdg:180,navstat:5,callsign:'WDE7532',dest:''},
+    // ── US East Coast ───────────────────────────────────────
+    {mmsi:'368207620',name:'CAPE FEAR',       typeCode:70,lat:33.92,lng:-78.02,sog: 9.5,cog:  5,hdg:  4,navstat:0,callsign:'WDB8342',dest:'USNFK'},
+    {mmsi:'367719770',name:'MOTOR VESSEL',    typeCode:37,lat:40.65,lng:-74.05,sog: 8.0,cog:180,hdg:182,navstat:0,callsign:'WCQ5532',dest:''},
+    {mmsi:'338234500',name:'ATLANTIC HURON',  typeCode:70,lat:43.50,lng:-79.80,sog: 6.0,cog:270,hdg:268,navstat:0,callsign:'WDE2921',dest:'USTOL'},
+    // ── US West Coast / Pacific ──────────────────────────────
+    {mmsi:'366916490',name:'SPIRIT OF ALASKA',typeCode:60,lat:57.78,lng:-152.42,sog:14.0,cog:200,hdg:202,navstat:0,callsign:'WDD1234',dest:'USSEW'},
+    {mmsi:'338047779',name:'HYUNDAI COURAGE', typeCode:71,lat:33.70,lng:-118.30,sog: 0.0,cog:  0,hdg: 90,navstat:1,callsign:'WDE4491',dest:''},
+    // ── Australia ───────────────────────────────────────────
+    {mmsi:'503000001',name:'SPIRIT OF TASMANIA',typeCode:60,lat:-38.10,lng:144.35,sog:20.0,cog: 45,hdg: 46,navstat:0,callsign:'VJOQ',dest:'AULST'},
+    {mmsi:'503576000',name:'BHP PILBARA',     typeCode:80,lat:-20.32,lng:118.61,sog: 0.0,cog:  0,hdg:270,navstat:5,callsign:'VJCR2',dest:''},
+    // ── South America ───────────────────────────────────────
+    {mmsi:'710054510',name:'TRANSPETRO RIODEJANEIRO',typeCode:80,lat:-22.90,lng:-43.25,sog: 0.0,cog:0,hdg:90,navstat:1,callsign:'PPMB4',dest:''},
+    {mmsi:'725001234',name:'MAERSK VALPARAISO',typeCode:71,lat:-33.02,lng:-71.62,sog: 8.0,cog:  0,hdg:  2,navstat:0,callsign:'CB4321',dest:'CLVAP'},
+    // ── SAR / Emergency ─────────────────────────────────────
+    {mmsi:'265797690',name:'SAR RESCUE 001',  typeCode:51,lat:57.42,lng:11.22,sog:22.0,cog:310,hdg:312,navstat:3,callsign:'SMAB',  dest:'INCIDENT'},
+    {mmsi:'219876543',name:'DANISH NAVY P551',typeCode:35,lat:55.40,lng:12.60,sog:18.0,cog: 90,hdg: 88,navstat:0,callsign:'OW5511',dest:'PATROL'},
+  ].forEach(v=>{ vesselMap[v.mmsi]=v; });
 }
 
 /* ── Select a vessel ────────────────────────────────────────── */
@@ -1573,30 +1642,43 @@ message Position {
 
 // ── FETCH + DECODE a single operator's vehiclepositions.pb ────
 async function fetchOperatorPositions(operator, overrideUrl){
-  // Try GTFS Sweden 3 first (national feed) then Regional
-  const urls = [
-    // GTFS Sweden 3 Realtime (all operators in one feed — only needs 1 fetch)
-    // Format: https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key={key}
-    cfg.primaryUrl || cfg.url,
+  const defaultUrl = `https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key=${TL_KEYS.gtfsSweden3Realtime}`;
+  const targetUrl  = overrideUrl || defaultUrl;
+
+  // Try direct first — Samtrafiken/Entur/OV-API all send CORS headers
+  // for real browser requests from github.io.
+  // Proxies are fallback only. All fetches use arrayBuffer for binary protobuf.
+  const attempts = [
+    {label:'direct',     url: targetUrl},
+    {label:'corsproxy',  url: `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`},
+    {label:'allorigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`},
   ];
-  // Try via proxy (CORS)
-  for(const directUrl of urls){
-    for(let pi=0; pi<PROXIES.length; pi++){
-      const url = PROXIES[pi](directUrl);
-      try{
-        const ctrl = new AbortController();
-        const tid  = setTimeout(()=>ctrl.abort(), 12000);
-        const res  = await fetch(url, {signal:ctrl.signal});
-        clearTimeout(tid);
-        if(!res.ok){ vlog('warn',`GTFS-RT HTTP ${res.status} via proxy${pi+1}`); continue; }
-        const buf  = await res.arrayBuffer();
-        vlog('ok',`GTFS-RT Sweden3 fetched: ${buf.byteLength} bytes via proxy${pi+1}`);
-        return decodePb(buf);
-      }catch(e){
-        vlog('warn',`GTFS-RT proxy${pi+1}: ${e.name==='AbortError'?'timeout':e.message}`);
+
+  for(const attempt of attempts){
+    try{
+      vlog('info', `GTFS-RT [${attempt.label}]: ${attempt.url.slice(0,80)}…`);
+      const ctrl = new AbortController();
+      const tid  = setTimeout(()=>ctrl.abort(), 15000);
+      const res  = await fetch(attempt.url, {
+        signal:  ctrl.signal,
+        headers: {'Accept': 'application/octet-stream, application/x-protobuf, */*'}
+      });
+      clearTimeout(tid);
+      if(!res.ok){ vlog('warn',`  HTTP ${res.status}`); continue; }
+      const buf = await res.arrayBuffer();
+      if(buf.byteLength < 10){ vlog('warn',`  Too small (${buf.byteLength}b)`); continue; }
+      vlog('ok', `  Got ${buf.byteLength} bytes`);
+      const vehicles = decodePb(buf);
+      if(vehicles.length > 0){
+        vlog('ok', `  Decoded ${vehicles.length} vehicles in viewport`);
+        return vehicles;
       }
+      vlog('warn', `  Decoded 0 vehicles (empty feed or wrong format)`);
+    }catch(e){
+      vlog('warn', `  ${attempt.label}: ${e.name==='AbortError'?'timeout (15s)':e.message}`);
     }
   }
+  vlog('error', 'All fetch attempts failed — showing demo data');
   return [];
 }
 
@@ -1710,7 +1792,7 @@ async function fetchLandVehicles(){
     loadLandDemoForCountry(landCountry);
     if(Object.keys(landMap).length===0) loadLandDemo();
     renderLand();
-    setStatus('err',`${LAND_COUNTRY_CONFIG[landCountry]?.flag||''} No live positions — showing demo (CORS or key issue)`);
+    setStatus('err',`${LAND_COUNTRY_CONFIG[landCountry]?.flag||''} Live feed unavailable — showing DEMO DATA (not real-time)`);
     document.getElementById('srcbadge').textContent=landCountry+' · demo';
   }
 }
@@ -1732,9 +1814,11 @@ function renderLand(){
       landMarkers[id].setIcon(landVehicleIcon(v.bearing,color,sz,op));
     } else {
       const m=L.marker([v.lat,v.lng],{icon:landVehicleIcon(v.bearing,color,sz,op),zIndexOffset:isSel?2000:0});
+      const isDemo = v.id.includes('-demo-') || v.id.match(/^[A-Z]{2}-/);
       m.bindTooltip(
         `<b>${ti.icon} ${v.line!=='—'?v.line+' ':''}</b>${v.dest!=='—'?' → '+v.dest:''}<br>`+
-        `${v.speed?v.speed+' km/h':'Stopped'} · ${ti.label}`,
+        `${v.speed?v.speed+' km/h':'Stopped'} · ${ti.label}` +
+        (isDemo ? '<br><span style="color:#e8a040;font-size:10px">⚠ Demo data — live feed unavailable</span>' : ''),
         {direction:'top',offset:[0,-8]}
       );
       m.on('click',()=>selectLandVehicle(id));
@@ -1966,10 +2050,8 @@ function setLandCountry(code, el, skipFly){
   const cfg = LAND_COUNTRY_CONFIG[code];
   if(!skipFly) map.flyTo(cfg.center, cfg.zoom, {duration:1.0, easeLinearity:.5});
 
-  // Show demo immediately while fetching live data
-  loadLandDemoForCountry(code);
-  renderLand();
-  setStatus('load', `${cfg.flag} ${cfg.name} — fetching live data…`);
+  setStatus('load', `${cfg.flag} ${cfg.name} — connecting to transit feed…`);
+  document.getElementById('srcbadge').textContent = code + ' · loading';
   fetchLandVehicles();
 }
 
@@ -1996,10 +2078,7 @@ function autoDetectCountry(){
     // Clear old markers
     Object.values(landMarkers).forEach(m=>map.removeLayer(m));
     landMarkers={}; landMap={};
-    // Show demo immediately
-    loadLandDemoForCountry(detected);
-    renderLand();
-    setStatus('load', `${cfg?.flag||''} Switched to ${cfg?.name||detected} — fetching live data…`);
+    setStatus('load', `${cfg?.flag||''} Switched to ${cfg?.name||detected} — fetching…`);
     // fetchLandVehicles is already scheduled by _landMoveTimer from moveend
   } else if(!detected){
     setStatus('load', '🌍 Pan to a supported European country for live transit data');
@@ -2021,8 +2100,9 @@ function startLandPoll(){
     if(btn) btn.classList.add('on');
     vlog('info','Land auto-detect on start: '+detected);
   }
-  // Show demo immediately, then fetch live data
-  loadLandDemo(); renderLand();
+  // Fetch live data directly — no demo shown upfront
+  // Demo only shown if ALL fetch attempts fail (handled in fetchLandVehicles)
+  setStatus('load', '🚂 Connecting to transit feed…');
   fetchLandVehicles();
   // Re-fetch on map move (debounced via the existing moveTimer pattern)
   map.on('moveend.land zoomend.land', ()=>{
@@ -2046,18 +2126,102 @@ function stopLandPoll(){
 
 // ── DEMO DATA ─────────────────────────────────────────────────
 function loadLandDemo(){
+  // Sweden demo — shown on startup and when live GTFS-RT is unavailable
   [
-    {id:'SL-T13-001',label:'T13',lat:59.332,lng:18.063,bearing:45, speed:40,routeType:1,line:'13',    dest:'Ropsten',     operator:'SL',         routeId:'13', tripId:'sl-t1'},
-    {id:'SL-B55-002',label:'55', lat:59.340,lng:18.055,bearing:270,speed:25,routeType:3,line:'55',    dest:'Hornstull',   operator:'SL',         routeId:'55', tripId:'sl-t2'},
-    {id:'SL-J-003',  label:'J',  lat:59.328,lng:18.072,bearing:0,  speed:0, routeType:2,line:'Pendeltåg',dest:'Uppsala C', operator:'SL',         routeId:'J',  tripId:'sl-t3'},
-    {id:'VT-B100-004',label:'100',lat:57.704,lng:11.967,bearing:90, speed:32,routeType:3,line:'100',  dest:'Frölunda',    operator:'Västtrafik', routeId:'100',tripId:'vt-t1'},
-    {id:'VT-T6-005', label:'6',  lat:57.710,lng:11.975,bearing:180,speed:28,routeType:0,line:'6',     dest:'Järntorget',  operator:'Västtrafik', routeId:'6',  tripId:'vt-t2'},
-    {id:'SKR-PT-006',label:'PT', lat:55.604,lng:13.000,bearing:135,speed:45,routeType:2,line:'Pågatåg',dest:'Hässleholm', operator:'Skånetrafiken',routeId:'PT',tripId:'sk-t1'},
-    {id:'SKR-B5-007',label:'5',  lat:55.610,lng:13.010,bearing:315,speed:20,routeType:3,line:'5',     dest:'Husie',       operator:'Skånetrafiken',routeId:'5', tripId:'sk-t2'},
-    {id:'UL-B1-008', label:'1',  lat:59.858,lng:17.642,bearing:200,speed:35,routeType:3,line:'1',     dest:'Uppsala C',   operator:'UL',         routeId:'1',  tripId:'ul-t1'},
-    {id:'SJ-X2-010', label:'X2', lat:58.415,lng:15.625,bearing:0,  speed:190,routeType:2,line:'X2000',dest:'Stockholm C', operator:'SJ',         routeId:'X2', tripId:'sj-t1'},
-    {id:'MTR-T-011', label:'T',  lat:59.345,lng:18.040,bearing:90, speed:60,routeType:1,line:'Röda linjen',dest:'Mörby C', operator:'MTR',        routeId:'RT', tripId:'mtr-t1'},
+    {id:'SL-T14-001',label:'T14',lat:59.331,lng:18.065,bearing: 45,speed:38,routeType:1,line:'14',        dest:'Mörby Centrum',  operator:'SL Stockholm'},
+    {id:'SL-T13-002',label:'T13',lat:59.320,lng:18.090,bearing:180,speed:42,routeType:1,line:'13',        dest:'Ropsten',        operator:'SL Stockholm'},
+    {id:'SL-B55-003',label:'55', lat:59.340,lng:18.050,bearing:270,speed:28,routeType:3,line:'55',        dest:'Hornstull',      operator:'SL Stockholm'},
+    {id:'SL-B65-004',label:'65', lat:59.336,lng:18.072,bearing: 90,speed:22,routeType:3,line:'65',        dest:'Lidingö centrum', operator:'SL Stockholm'},
+    {id:'SL-J-005',  label:'J',  lat:59.330,lng:18.058,bearing:  0,speed: 0,routeType:2,line:'Pendeltåg', dest:'Märsta',         operator:'SL Stockholm'},
+    {id:'SL-T-006',  label:'T',  lat:59.345,lng:18.035,bearing: 90,speed:55,routeType:1,line:'Röda linjen',dest:'Mörby C',       operator:'MTR Stockholm'},
+    {id:'SL-T-007',  label:'T',  lat:59.337,lng:18.070,bearing:180,speed:48,routeType:1,line:'Gröna linjen',dest:'Hagsätra',     operator:'MTR Stockholm'},
+    {id:'SL-T-008',  label:'T',  lat:59.325,lng:18.082,bearing: 90,speed:52,routeType:1,line:'Blå linjen', dest:'Barkarby',      operator:'MTR Stockholm'},
+    {id:'VT-B100-009',label:'100',lat:57.706,lng:11.968,bearing: 88,speed:32,routeType:3,line:'100',      dest:'Frölunda torg',  operator:'Västtrafik'},
+    {id:'VT-T6-010', label:'6',  lat:57.714,lng:11.972,bearing:180,speed:30,routeType:0,line:'6',         dest:'Järntorget',     operator:'Västtrafik'},
+    {id:'VT-B16-011',label:'16', lat:57.698,lng:12.010,bearing:270,speed:25,routeType:3,line:'16',        dest:'Göteborg C',     operator:'Västtrafik'},
+    {id:'SKR-PT-012',label:'PT', lat:55.605,lng:13.002,bearing:135,speed:44,routeType:2,line:'Pågatåg',   dest:'Hässleholm',     operator:'Skånetrafiken'},
+    {id:'SKR-B5-013',label:'5',  lat:55.612,lng:13.012,bearing:315,speed:22,routeType:3,line:'5',         dest:'Husie centrum',  operator:'Skånetrafiken'},
+    {id:'UL-B1-014', label:'1',  lat:59.860,lng:17.645,bearing:200,speed:35,routeType:3,line:'1',         dest:'Uppsala C',      operator:'UL Uppsala'},
+    {id:'SJ-X2-015', label:'X2', lat:58.418,lng:15.628,bearing:  0,speed:190,routeType:2,line:'X2000',   dest:'Stockholm C',    operator:'SJ'},
+    {id:'SJ-RC-016', label:'RC', lat:60.730,lng:17.115,bearing:  0,speed:160,routeType:2,line:'Regionaltåg',dest:'Stockholm C', operator:'SJ'},
   ].forEach(v=>{landMap[v.id]=v;});
+  document.getElementById('pill').textContent=Object.keys(landMap).length+' vehicles';
+}
+
+function loadLandDemoForCountry(code){
+  const D = {
+    NO:[
+      {id:'NO-T1-1', label:'1',  lat:59.911,lng:10.750,bearing:180,speed:40,routeType:0,line:'1',        dest:'Rikshospitalet',  operator:'Ruter Oslo'},
+      {id:'NO-B31-2',label:'31', lat:59.920,lng:10.735,bearing:270,speed:30,routeType:3,line:'31',       dest:'Majorstuen',      operator:'Ruter Oslo'},
+      {id:'NO-T-3',  label:'R',  lat:59.908,lng:10.756,bearing: 90,speed:55,routeType:2,line:'Regiontog',dest:'Drammen',         operator:'Vy'},
+      {id:'NO-IC-4', label:'IC', lat:60.790,lng: 8.590,bearing:  0,speed:130,routeType:2,line:'Intercity',dest:'Oslo S',         operator:'Vy'},
+      {id:'NO-B-5',  label:'37', lat:59.940,lng:10.710,bearing: 45,speed:25,routeType:3,line:'37',       dest:'Helsfyr T',       operator:'Ruter Oslo'},
+    ],
+    FI:[
+      {id:'FI-T1-1', label:'1',  lat:60.169,lng:24.939,bearing:180,speed:35,routeType:0,line:'1',        dest:'Arabia',          operator:'HSL Helsinki'},
+      {id:'FI-M-2',  label:'M',  lat:60.173,lng:24.945,bearing: 90,speed:65,routeType:1,line:'Metro',    dest:'Mellunkylä',      operator:'HSL Helsinki'},
+      {id:'FI-B-3',  label:'23', lat:60.165,lng:24.930,bearing:270,speed:28,routeType:3,line:'23',       dest:'Lauttasaari',     operator:'HSL Helsinki'},
+      {id:'FI-IC-4', label:'IC', lat:61.500,lng:23.780,bearing:  0,speed:120,routeType:2,line:'Intercity',dest:'Helsinki C',     operator:'VR'},
+      {id:'FI-T-5',  label:'9',  lat:60.158,lng:24.920,bearing: 90,speed:32,routeType:0,line:'9',        dest:'Itäkeskus',       operator:'HSL Helsinki'},
+    ],
+    DK:[
+      {id:'DK-M1-1', label:'M1', lat:55.668,lng:12.568,bearing: 45,speed:50,routeType:1,line:'M1',       dest:'Vanløse',         operator:'Metro Copenhagen'},
+      {id:'DK-S-2',  label:'S',  lat:55.675,lng:12.572,bearing:270,speed:65,routeType:2,line:'S-tog',    dest:'Frederiksberg',   operator:'DSB S-tog'},
+      {id:'DK-B-3',  label:'5A', lat:55.680,lng:12.560,bearing: 90,speed:22,routeType:3,line:'5A',       dest:'Husum',           operator:'Movia'},
+      {id:'DK-IC-4', label:'IC', lat:55.500,lng:11.200,bearing:  0,speed:140,routeType:2,line:'Intercity',dest:'Copenhagen C',   operator:'DSB'},
+      {id:'DK-M2-5', label:'M2', lat:55.662,lng:12.580,bearing:180,speed:50,routeType:1,line:'M2',       dest:'Copenhagen Airport',operator:'Metro Copenhagen'},
+    ],
+    DE:[
+      {id:'DE-U1-1', label:'U1', lat:52.520,lng:13.405,bearing: 90,speed:55,routeType:1,line:'U1',       dest:'Uhlandstr.',      operator:'BVG Berlin'},
+      {id:'DE-S7-2', label:'S7', lat:52.527,lng:13.415,bearing:270,speed:70,routeType:2,line:'S7',       dest:'Potsdam Hbf',     operator:'S-Bahn Berlin'},
+      {id:'DE-T-3',  label:'M1', lat:52.510,lng:13.398,bearing:  0,speed:30,routeType:0,line:'M1',       dest:'Schillerstr.',    operator:'BVG Berlin'},
+      {id:'DE-B-4',  label:'100',lat:52.515,lng:13.388,bearing: 90,speed:25,routeType:3,line:'100',      dest:'Alexanderplatz',  operator:'BVG Berlin'},
+      {id:'DE-ICE-5',label:'ICE',lat:50.110,lng: 8.680,bearing:  0,speed:250,routeType:2,line:'ICE 11',  dest:'Berlin Hbf',      operator:'DB Fernverkehr'},
+      {id:'DE-RE-6', label:'RE', lat:48.140,lng:11.560,bearing:270,speed:120,routeType:2,line:'RE 1',    dest:'Augsburg Hbf',    operator:'DB Regio Bayern'},
+    ],
+    NL:[
+      {id:'NL-T9-1', label:'9',  lat:52.373,lng: 4.893,bearing: 90,speed:30,routeType:0,line:'9',        dest:'Centraal Station', operator:'GVB Amsterdam'},
+      {id:'NL-M-2',  label:'52', lat:52.360,lng: 4.900,bearing:180,speed:55,routeType:1,line:'52',       dest:'Amsterdam CS',    operator:'GVB Amsterdam'},
+      {id:'NL-B-3',  label:'15', lat:52.380,lng: 4.886,bearing:270,speed:28,routeType:3,line:'15',       dest:'Amstelveen',      operator:'GVB Amsterdam'},
+      {id:'NL-IC-4', label:'IC', lat:52.150,lng: 5.380,bearing:  0,speed:130,routeType:2,line:'Intercity',dest:'Amsterdam CS',   operator:'NS'},
+      {id:'NL-T-5',  label:'1',  lat:51.922,lng: 4.476,bearing: 90,speed:30,routeType:0,line:'1',        dest:'Schiedam C',      operator:'RET Rotterdam'},
+    ],
+    FR:[
+      {id:'FR-M1-1', label:'1',  lat:48.869,lng: 2.308,bearing: 90,speed:50,routeType:1,line:'Ligne 1',  dest:'Vincennes',       operator:'RATP Paris'},
+      {id:'FR-M4-2', label:'4',  lat:48.857,lng: 2.352,bearing:180,speed:52,routeType:1,line:'Ligne 4',  dest:'Montrouge',       operator:'RATP Paris'},
+      {id:'FR-B-3',  label:'21', lat:48.875,lng: 2.350,bearing:270,speed:18,routeType:3,line:'21',       dest:'Gare de Lyon',    operator:'RATP Paris'},
+      {id:'FR-RER-4',label:'A',  lat:48.862,lng: 2.345,bearing:  0,speed:70,routeType:2,line:'RER A',    dest:'CDG Airport',     operator:'RATP / SNCF'},
+      {id:'FR-TGV-5',label:'TGV',lat:47.320,lng: 2.340,bearing:  0,speed:300,routeType:2,line:'TGV Duplex',dest:'Paris Gare de Lyon',operator:'SNCF'},
+    ],
+    CH:[
+      {id:'CH-T-1',  label:'10', lat:47.378,lng: 8.540,bearing: 90,speed:28,routeType:0,line:'10',       dest:'Zürich Flughafen', operator:'ZVV / VBZ'},
+      {id:'CH-B-2',  label:'31', lat:47.370,lng: 8.545,bearing:180,speed:22,routeType:3,line:'31',       dest:'Albisrieden',     operator:'VBZ Zürich'},
+      {id:'CH-IC-3', label:'IC', lat:47.000,lng: 7.450,bearing: 45,speed:160,routeType:2,line:'ICN',     dest:'Zürich HB',       operator:'SBB CFF FFS'},
+      {id:'CH-RE-4', label:'RE', lat:46.520,lng: 6.640,bearing: 90,speed:120,routeType:2,line:'RegioExpress',dest:'Genève C',    operator:'SBB CFF FFS'},
+    ],
+    AT:[
+      {id:'AT-U4-1', label:'U4', lat:48.208,lng:16.371,bearing: 90,speed:50,routeType:1,line:'U4',       dest:'Hütteldorf',      operator:'Wiener Linien'},
+      {id:'AT-T1-2', label:'1',  lat:48.215,lng:16.365,bearing:180,speed:25,routeType:0,line:'1',        dest:'Prater Hauptallee',operator:'Wiener Linien'},
+      {id:'AT-B-3',  label:'13A',lat:48.200,lng:16.360,bearing: 90,speed:20,routeType:3,line:'13A',      dest:'Skodagasse',      operator:'Wiener Linien'},
+      {id:'AT-RJ-4', label:'RJ', lat:47.800,lng:13.050,bearing:  0,speed:140,routeType:2,line:'Railjet', dest:'Wien Hbf',        operator:'ÖBB'},
+      {id:'AT-S-5',  label:'S45',lat:48.192,lng:16.340,bearing:270,speed:60,routeType:2,line:'S45',      dest:'Hütteldorf',      operator:'ÖBB S-Bahn Wien'},
+    ],
+    BE:[
+      {id:'BE-M1-1', label:'1',  lat:50.845,lng: 4.352,bearing: 90,speed:50,routeType:1,line:'Lijn 1',   dest:'Roi Baudouin',    operator:'STIB/MIVB Brussel'},
+      {id:'BE-T-2',  label:'55', lat:50.850,lng: 4.345,bearing:180,speed:28,routeType:0,line:'55',       dest:'Montgomery',      operator:'STIB Brussel'},
+      {id:'BE-IC-3', label:'IC', lat:50.620,lng: 4.600,bearing:  0,speed:130,routeType:2,line:'IC Bruxelles–Liège',dest:'Liège G',operator:'SNCB / NMBS'},
+      {id:'BE-B-4',  label:'46', lat:50.835,lng: 4.340,bearing:270,speed:22,routeType:3,line:'46',       dest:'Simonis',         operator:'STIB Brussel'},
+    ],
+    IE:[
+      {id:'IE-GL-1', label:'GL', lat:53.339,lng:-6.259,bearing:180,speed:45,routeType:0,line:'Green Line',dest:'Sandyford',      operator:'Transdev Dublin'},
+      {id:'IE-DART-2',label:'DART',lat:53.348,lng:-6.250,bearing: 90,speed:80,routeType:2,line:'DART',   dest:'Malahide',        operator:'Irish Rail'},
+      {id:'IE-B-3',  label:'39A',lat:53.355,lng:-6.268,bearing:270,speed:20,routeType:3,line:'39A',      dest:'UCD Belfield',    operator:'Dublin Bus'},
+      {id:'IE-IC-4', label:'IE', lat:52.660,lng:-8.620,bearing:  0,speed:110,routeType:2,line:'Intercity',dest:'Heuston Station',operator:'Irish Rail'},
+    ],
+  };
+  const vehicles = D[code];
+  if(!vehicles) return;
+  vehicles.forEach(v=>{ landMap[v.id]=v; });
   document.getElementById('pill').textContent=Object.keys(landMap).length+' vehicles';
 }
 
@@ -2383,8 +2547,62 @@ function hideLandCoverage(){
   }
 }
 
-/* ═══ INIT ═════════════════════════════════════════════════════ */
-fetchViewport(true).then(()=>{drawNFZ();showAirCoverage();startAutoRefresh();});
+/* ═══ COVERAGE INFO PANEL ════════════════════════════════════════
+   Explains what the overlay means and why data may be sparse.
+   Different content per domain. Shown bottom-right when active.
+════════════════════════════════════════════════════════════════ */
+const COV_CONTENT = {
+  air: {
+    icon:'✈', title:'Air traffic coverage',
+    rows:[
+      {color:'#7dd460', text:'<b>Full coverage</b> — Dense ADS-B ground station network. Aircraft update every 5–15 seconds. Covers Europe, North America, Australia, East/South Asia, Middle East, Brazil, South Africa.'},
+      {color:'#e8a040', text:'<b>Partial coverage</b> — Some ground stations, occasional gaps. Includes Central Asia, West Africa, Argentina, western Russia, Arctic fringes.'},
+      {color:'#e85858', text:'<b>No ground stations</b> — Open ocean and remote polar areas. Aircraft may still transmit ADS-B but no receivers pick it up. Satellite ADS-B exists but is not available in the free tier.'},
+    ],
+    note:'<b>Why some aircraft are missing:</b> Military aircraft are often ADS-B-exempt and fly without transponders. Many private jets use Privacy ICAO Address (PIA) — their hex codes rotate to prevent tracking. Aircraft below 10,000 ft in uncontrolled airspace may also skip ADS-B.\n\n<span class="cv-src">Sources: adsb.lol · adsb.one · airplanes.live · adsb.fi</span>',
+  },
+  sea: {
+    icon:'⚓', title:'Maritime AIS coverage',
+    rows:[
+      {color:'#4fa8e8', text:'<b>Terrestrial AIS</b> — Dense shore-based receiver network. Vessels update every 2–10 seconds depending on speed. Covers all major ports and coastal areas worldwide: Europe, US coasts, East/SE Asia, Persian Gulf, Red Sea, Caribbean, Australia, Brazil, South Africa.'},
+      {color:'#e8a040', text:'<b>Open ocean shipping lanes</b> — Sparse or no terrestrial receivers. Some data received via satellite AIS (not available in free tier). Ships are still broadcasting — just no receivers to hear them.'},
+      {color:'#3a3d52', text:'<b>No coverage</b> — Remote oceans and polar regions. Data completely absent from free AIS networks.'},
+    ],
+    note:'<b>Why fewer ships than expected:</b> Live data accumulates via WebSocket — the map fills up over 1–2 minutes as AIS broadcasts arrive. Only vessels within your current viewport are subscribed. Pan to a port area to see dense traffic.\n\nAIS is mandatory for vessels over 300 GT on international voyages. Smaller craft, naval vessels, and fishing boats under 15m may not transmit.\n\n<span class="cv-src">Source: aisstream.io · Free WebSocket AIS stream</span>',
+  },
+  land: {
+    icon:'🚂', title:'Land transit coverage',
+    rows:[
+      {color:'#00e8c8', text:'<b>Live data available</b> — GTFS Realtime vehicle positions feed active. Bus, tram, metro, train positions updated every 2–15 seconds. Covers: Sweden, Norway, Finland, Denmark, Germany, Netherlands, Switzerland, Austria, Belgium, Ireland.'},
+      {color:'#e8a040', text:'<b>Partial coverage</b> — Some operators only (e.g. France = Paris region only, Germany = Berlin/Brandenburg only). National coverage varies by operator participation.'},
+      {color:'#3a3d52', text:'<b>No data</b> — No free open GTFS-RT API exists for these regions. North/South America, Africa, Asia, and Australia have no unified free live transit API.'},
+    ],
+    note:'<b>Why demo data is shown:</b> GTFS Realtime feeds are in protobuf binary format (not plain text). They require a CORS proxy to fetch from the browser. If the proxy is blocked or the feed is temporarily unavailable, demo data is shown instead of live positions.\n\nClick a country to load its data. The map auto-switches country as you pan.\n\n<span class="cv-src">Sources: Trafiklab · Entur · Digitransit · OV-API · iRail · and more</span>',
+  },
+};
+
+function showCoveragePanel(domain){
+  const panel = document.getElementById('cov-panel');
+  const cfg = COV_CONTENT[domain];
+  if(!cfg){ panel.classList.remove('on'); return; }
+  panel.innerHTML = `
+    <h4>${cfg.icon} ${cfg.title}</h4>
+    ${cfg.rows.map(r=>`
+      <div class="cv-row">
+        <div class="cv-dot" style="background:${r.color}"></div>
+        <div class="cv-text">${r.text}</div>
+      </div>`).join('')}
+    <div class="cv-note">${cfg.note.replace(/\n/g,'<br>')}</div>
+  `;
+  panel.classList.add('on');
+}
+
+function hideCoveragePanel(){
+  document.getElementById('cov-panel').classList.remove('on');
+}
+
+
+fetchViewport(true).then(()=>{drawNFZ();showAirCoverage();showCoveragePanel('air');startAutoRefresh();});
 vlog('ok','VectorWatch initialised — Air + Sea domains active');
 </script>
 </body>
