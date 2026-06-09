@@ -22,6 +22,74 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #rbtn.spin{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 #logbtn{font-size:11px;padding:4px 9px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0}
+
+/* ── LOG PANEL — always running, blend in/out ──────────────── */
+#logpanel{
+  position:absolute;
+  bottom:calc(20vh + 24px);
+  left:0;right:0;
+  z-index:2000;
+  display:flex;flex-direction:column;
+  height:260px;
+  background:#0a0b10;
+  border-top:1px solid #4fa8e8;
+  font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;
+  font-size:11px;
+  line-height:1.45;
+  /* Blend transition — opacity+transform instead of display:none */
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity .22s ease, transform .22s ease;
+}
+#logpanel.visible{
+  opacity:1;
+  pointer-events:all;
+  transform:translateY(0);
+}
+#logpanel.hidden{display:none}
+#log-titlebar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:4px 10px;
+  background:#111420;
+  border-bottom:1px solid #1e2130;
+  flex-shrink:0;
+}
+#log-title{
+  color:#4fa8e8;font-weight:600;font-size:11px;letter-spacing:.03em;
+  user-select:none;
+}
+#log-titlebar button{
+  background:none;border:1px solid #2a2d42;color:#6b6e8a;
+  font-size:10px;padding:2px 7px;border-radius:4px;cursor:pointer;
+  font-family:inherit;transition:all .15s;
+}
+#log-titlebar button:hover{color:#e0e2ee;border-color:#4fa8e8}
+#log-body{
+  flex:1;overflow-y:auto;overflow-x:auto;
+  padding:6px 0;
+  /* custom scrollbar */
+  scrollbar-width:thin;
+  scrollbar-color:#2a2d42 #0a0b10;
+}
+#log-body::-webkit-scrollbar{width:6px;height:6px}
+#log-body::-webkit-scrollbar-track{background:#0a0b10}
+#log-body::-webkit-scrollbar-thumb{background:#2a2d42;border-radius:3px}
+#log-body::-webkit-scrollbar-thumb:hover{background:#3a3d52}
+#loglines{
+  margin:0;padding:0 10px;
+  white-space:pre;
+  color:#c8cce8;
+  /* no word-wrap — pure text file feel */
+}
+#log-statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:3px 10px;
+  background:#0d0f18;
+  border-top:1px solid #1e2130;
+  font-size:10px;color:#3a3d52;
+  flex-shrink:0;
+}
 .dtab{font-size:11px;padding:4px 10px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;transition:all .15s}
 .dtab.on{color:#fff;background:#252840;border-color:#4fa8e8}
 .dtab:hover:not(.on){color:#aaa}
@@ -148,13 +216,65 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .lc:hover{color:#aaa}
 .lc.on{background:#141e30;border-color:#4fa8e8;color:#c8cce8}
 /* Coverage info panel */
-#cov-panel{position:absolute;top:100px;right:12px;z-index:1001;background:rgba(13,15,24,.94);border:1px solid #232636;border-radius:10px;padding:12px 14px;max-width:240px;font-size:11px;line-height:1.6;color:#aab0c8;display:none}
+/* ── COVERAGE INFO PANEL — floating overlay, collapsible ── */
+#cov-panel{
+  position:absolute;
+  top:54px;            /* just below Dark/NFZ buttons */
+  right:12px;
+  z-index:1001;
+  width:260px;
+  background:rgba(10,11,18,.96);
+  border:1px solid #2a2d42;
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:0 4px 24px rgba(0,0,0,.55);
+  display:none;
+  transition:box-shadow .2s;
+}
 #cov-panel.on{display:block}
-#cov-panel h4{font-size:12px;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-#cov-panel .cv-row{display:flex;align-items:flex-start;gap:6px;margin-bottom:4px}
-#cov-panel .cv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
-#cov-panel .cv-text{color:#8a90a8;font-size:10px;line-height:1.5}
-#cov-panel .cv-note{margin-top:8px;padding-top:8px;border-top:1px solid #1e2130;font-size:10px;color:#45485e;line-height:1.5}
+/* Title bar — always visible, clickable to collapse */
+#cov-panel-title{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;
+  background:rgba(20,23,32,.98);
+  border-bottom:1px solid #1e2130;
+  cursor:pointer;
+  user-select:none;
+  gap:8px;
+}
+#cov-panel-title:hover{background:rgba(30,33,48,.98)}
+#cov-panel-title-text{
+  font-size:11px;font-weight:700;color:#fff;
+  display:flex;align-items:center;gap:6px;flex:1;
+}
+#cov-panel-chevron{
+  font-size:10px;color:#6b6e8a;
+  transition:transform .2s;
+  flex-shrink:0;
+}
+#cov-panel.minimized #cov-panel-chevron{transform:rotate(-90deg)}
+/* Collapsible body */
+#cov-panel-body{
+  padding:10px 12px 12px;
+  font-size:11px;line-height:1.6;color:#aab0c8;
+  max-height:420px;
+  overflow:hidden;
+  transition:max-height .25s ease, padding .25s ease, opacity .2s ease;
+  opacity:1;
+}
+#cov-panel.minimized #cov-panel-body{
+  max-height:0;
+  padding-top:0;padding-bottom:0;
+  opacity:0;
+}
+#cov-panel .cv-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px}
+#cov-panel .cv-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:3px}
+#cov-panel .cv-text{color:#8a90a8;font-size:10px;line-height:1.55}
+#cov-panel .cv-note{
+  margin-top:8px;padding-top:8px;
+  border-top:1px solid #1e2130;
+  font-size:10px;color:#45485e;line-height:1.55;
+}
 #cov-panel .cv-src{color:#4fa8e8;font-size:10px}
 @media(max-width:520px){
   .d-stats{grid-template-columns:repeat(2,1fr)}
@@ -175,7 +295,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <span class="pill" id="pill">—</span>
     <button id="rbtn" onclick="fetchViewport(true)" title="Refresh">↻</button>
     <button id="locbtn" onclick="locateMe()" title="Locate me">📍</button>
-    <button id="logbtn" onclick="toggleLog()">📋 Log</button>
+    <button id="logbtn" onclick="toggleLog()" title="Toggle debug log">📋 Log</button>
   </div>
   <div id="filterbar">
     <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>✈ All flights</button>
@@ -215,12 +335,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <button id="fab" onclick="activeDomain==='sea'?deselectVessel():activeDomain==='land'?deselectLand():deselect()">✕ Deselect</button>
 
 <!-- LOG PANEL -->
-<div id="logpanel" class="hidden" style="position:absolute;bottom:calc(20vh + 26px);left:0;right:0;z-index:2000;background:rgba(8,10,18,.97);border-top:1px solid #2a2d42;max-height:200px;overflow-y:auto;padding:8px 10px;font-size:10px;font-family:ui-monospace,monospace">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-    <span style="color:#4fa8e8;font-weight:600">VectorWatch — API Debug Log</span>
-    <button onclick="toggleLog()" style="background:none;border:none;color:#6b6e8a;cursor:pointer;font-size:14px">×</button>
+<div id="logpanel" class="hidden">
+  <div id="log-titlebar">
+    <span id="log-title">📄 VectorWatch — debug.log</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="log-save"  onclick="saveLog()"  title="Download as .log file">💾 Save file</button>
+      <button id="log-copy"  onclick="copyLog()"  title="Copy all to clipboard">⎘ Copy</button>
+      <button id="log-clear" onclick="clearLog()" title="Clear log">⌫ Clear</button>
+      <button id="log-close" onclick="toggleLog()" title="Hide log panel">✕</button>
+    </div>
   </div>
-  <div id="loglines"></div>
+  <div id="log-body">
+    <pre id="loglines"></pre>
+  </div>
+  <div id="log-statusbar">
+    <span id="log-count">0 lines</span>
+    <span id="log-info">always running · newest entry at top</span>
+  </div>
 </div>
 
 <!-- DETAIL PANEL -->
@@ -590,10 +721,12 @@ async function probeApis(){
   vlog('info',`Probing APIs lat=${lat} lon=${lon}`);
   for(const src of API_BASES){
     const direct=`${src.base}/v2/lat/${lat}/lon/${lon}/dist/50`;
-    const d=await _rawFetch(direct,src.name+' direct',2000);
+    // Direct probe — 5s timeout (was 2s, too short for CDN cold start)
+    const d=await _rawFetch(direct,src.name+' direct',5000);
     if(d!==null){workingApi={...src,useProxy:false};vlog('ok',`Working: ${src.name} direct`);return workingApi;}
+    // Proxy attempts — 8s each
     for(let i=0;i<PROXIES.length;i++){
-      const r=await _rawFetch(PROXIES[i](direct),`${src.name} proxy${i+1}`,5000);
+      const r=await _rawFetch(PROXIES[i](direct),`${src.name} proxy${i+1}`,8000);
       if(r!==null){workingApi={...src,useProxy:true,proxyIdx:i};vlog('ok',`Working: ${src.name} proxy${i+1}`);return workingApi;}
     }
   }
@@ -1070,28 +1203,149 @@ nfzBtn.onclick=()=>{
   nfzBtn.style.borderColor=nfzVisible?'#882020':'#232636';
 };
 
-/* ═══ LOG ══════════════════════════════════════════════════════ */
-const logLines=[];
-function vlog(level,msg){
-  const t=new Date().toLocaleTimeString();
-  const line=`[${t}] ${level.toUpperCase()}: ${msg}`;
-  console.log(line);logLines.unshift(line);if(logLines.length>50)logLines.pop();
-  const el=document.getElementById('logpanel');
-  if(el&&!el.classList.contains('hidden')){
-    el.querySelector('#loglines').innerHTML=logLines.map(l=>{
-      const col=l.includes('ERROR')||l.includes('FAIL')?'#e85858':l.includes('OK')||l.includes('SUCCESS')?'#7dd460':l.includes('WARN')?'#e8a040':'#aab0c8';
-      return `<div style="color:${col}">${l}</div>`;
-    }).join('');
+/* ═══ LOG — text-file style ═════════════════════════════════ */
+const logLines = [];   // array of raw strings, newest first
+const LOG_MAX  = 500;  // keep last 500 lines
+
+// Level → prefix used in the text file
+const LOG_PREFIX = {
+  ok:    'OK   ',
+  info:  'INFO ',
+  warn:  'WARN ',
+  error: 'ERROR',
+};
+
+// Level → ANSI-style colour for the pre element
+const LOG_COLOR = {
+  ok:    '#7dd460',
+  info:  '#8090b8',
+  warn:  '#e8a040',
+  error: '#e85858',
+};
+
+function vlog(level, msg){
+  const now   = new Date();
+  const hh    = String(now.getHours()).padStart(2,'0');
+  const mm    = String(now.getMinutes()).padStart(2,'0');
+  const ss    = String(now.getSeconds()).padStart(2,'0');
+  const ms    = String(now.getMilliseconds()).padStart(3,'0');
+  const ts    = `${hh}:${mm}:${ss}.${ms}`;
+  const pfx   = LOG_PREFIX[level] || 'DEBUG';
+  const line  = `${ts}  ${pfx}  ${msg}`;
+  const color = LOG_COLOR[level] || '#8090b8';
+
+  console.log(line);
+  logLines.unshift({text: line, color});
+  if(logLines.length > LOG_MAX) logLines.length = LOG_MAX;
+
+  // Always update DOM — panel is always running (just hidden from view)
+  // Use requestAnimationFrame to batch rapid-fire log entries
+  if(!vlog._rafPending){
+    vlog._rafPending = true;
+    requestAnimationFrame(()=>{
+      vlog._rafPending = false;
+      _renderLog();
+    });
   }
 }
+
+function _renderLog(){
+  const pre   = document.getElementById('loglines');
+  const count = document.getElementById('log-count');
+  if(!pre) return;
+
+  // Build a single text block where each line has its own colour
+  // Using <span> per line inside <pre> preserves monospace + word layout
+  pre.innerHTML = logLines.map(l =>
+    `<span style="color:${l.color}">${_escHtml(l.text)}</span>`
+  ).join('\n');
+
+  if(count) count.textContent = `${logLines.length} line${logLines.length!==1?'s':''}`;
+}
+
+function _escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function toggleLog(){
-  const p=document.getElementById('logpanel'),b=document.getElementById('logbtn');
-  p.classList.toggle('hidden');
-  b.style.color=p.classList.contains('hidden')?'#6b6e8a':'#4fa8e8';
-  if(!p.classList.contains('hidden'))p.querySelector('#loglines').innerHTML=logLines.map(l=>{
-    const col=l.includes('ERROR')||l.includes('FAIL')?'#e85858':l.includes('OK')||l.includes('SUCCESS')?'#7dd460':l.includes('WARN')?'#e8a040':'#aab0c8';
-    return `<div style="color:${col}">${l}</div>`;
-  }).join('');
+  const panel = document.getElementById('logpanel');
+  const btn   = document.getElementById('logbtn');
+
+  // Remove hidden (display:none) first so transition works
+  if(panel.classList.contains('hidden')){
+    panel.classList.remove('hidden');
+    // Trigger reflow so transition fires
+    void panel.offsetWidth;
+    panel.classList.add('visible');
+    btn.style.color       = '#4fa8e8';
+    btn.style.borderColor = '#4fa8e8';
+    _renderLog();
+  } else if(panel.classList.contains('visible')){
+    panel.classList.remove('visible');
+    btn.style.color       = '#6b6e8a';
+    btn.style.borderColor = '#232636';
+    // After transition completes, restore hidden so it doesn't block map clicks
+    setTimeout(()=>{ panel.classList.add('hidden'); }, 230);
+  }
+}
+
+function copyLog(){
+  const text = logLines.map(l => l.text).join('\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = document.getElementById('log-copy');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.style.color = '#7dd460';
+    setTimeout(()=>{ btn.textContent=orig; btn.style.color=''; }, 1500);
+  }).catch(()=>{
+    // Fallback for browsers without clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = logLines.map(l => l.text).join('\n');
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+function saveLog(){
+  const now   = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+              + `_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}-${String(now.getSeconds()).padStart(2,'0')}`;
+  const filename = `vectorwatch_${stamp}.log`;
+
+  // Build file content — header + all log lines (oldest first for readability)
+  const header = [
+    `VectorWatch — Debug Log`,
+    `Exported : ${now.toISOString()}`,
+    `Entries  : ${logLines.length}`,
+    `URL      : ${location.href}`,
+    `Browser  : ${navigator.userAgent}`,
+    '─'.repeat(80),
+    '',
+  ].join('
+');
+
+  const body = [...logLines].reverse().map(l => l.text).join('
+');
+  const blob = new Blob([header + body], {type: 'text/plain;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  // Visual feedback
+  const btn = document.getElementById('log-save');
+  if(btn){ const orig=btn.textContent; btn.textContent='✓ Saved'; btn.style.color='#7dd460';
+    setTimeout(()=>{ btn.textContent=orig; btn.style.color=''; }, 2000); }
+  vlog('info', `Log saved as ${filename} (${logLines.length} entries)`);
+}
+
+function clearLog(){
+  logLines.length = 0;
+  _renderLog();
+  vlog('info', 'Log cleared');
 }
 
 /* ═══ HELPERS ══════════════════════════════════════════════════ */
@@ -1640,14 +1894,48 @@ message Position {
   }
 }
 
+// ── GZIP DECOMPRESSION ───────────────────────────────────────
+// GTFS-RT feeds are gzip-encoded. Proxies preserve the encoding.
+// Browsers don't auto-decompress arrayBuffer — we must do it manually.
+async function decompressIfNeeded(buffer){
+  const bytes = new Uint8Array(buffer);
+  // Check gzip magic bytes: 0x1f 0x8b
+  if(bytes[0] === 0x1f && bytes[1] === 0x8b){
+    try{
+      // DecompressionStream available in Chrome 80+, Firefox 113+, Safari 16.4+
+      const ds     = new DecompressionStream('gzip');
+      const writer = ds.writable.getWriter();
+      const reader = ds.readable.getReader();
+      writer.write(bytes);
+      writer.close();
+      const chunks = [];
+      let totalLen = 0;
+      while(true){
+        const {done, value} = await reader.read();
+        if(done) break;
+        chunks.push(value);
+        totalLen += value.length;
+      }
+      const out = new Uint8Array(totalLen);
+      let offset = 0;
+      for(const chunk of chunks){ out.set(chunk, offset); offset += chunk.length; }
+      vlog('ok', `  Gzip decompressed: ${buffer.byteLength}b → ${totalLen}b`);
+      return out.buffer;
+    }catch(e){
+      vlog('warn', `  Gzip decompress failed: ${e.message} — trying raw`);
+      return buffer;
+    }
+  }
+  return buffer; // not gzip, return as-is
+}
+
 // ── FETCH + DECODE a single operator's vehiclepositions.pb ────
 async function fetchOperatorPositions(operator, overrideUrl){
   const defaultUrl = `https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key=${TL_KEYS.gtfsSweden3Realtime}`;
   const targetUrl  = overrideUrl || defaultUrl;
 
-  // Try direct first — Samtrafiken/Entur/OV-API all send CORS headers
-  // for real browser requests from github.io.
-  // Proxies are fallback only. All fetches use arrayBuffer for binary protobuf.
+  // Try direct first — GTFS-RT APIs send CORS headers for browser origins.
+  // Proxies are fallback. All responses may be gzip-encoded — decompress first.
   const attempts = [
     {label:'direct',     url: targetUrl},
     {label:'corsproxy',  url: `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`},
@@ -1665,15 +1953,24 @@ async function fetchOperatorPositions(operator, overrideUrl){
       });
       clearTimeout(tid);
       if(!res.ok){ vlog('warn',`  HTTP ${res.status}`); continue; }
-      const buf = await res.arrayBuffer();
+      let buf = await res.arrayBuffer();
       if(buf.byteLength < 10){ vlog('warn',`  Too small (${buf.byteLength}b)`); continue; }
-      vlog('ok', `  Got ${buf.byteLength} bytes`);
+      vlog('info', `  Raw: ${buf.byteLength} bytes — checking encoding…`);
+      // Decompress gzip if needed (proxies often preserve Content-Encoding)
+      buf = await decompressIfNeeded(buf);
       const vehicles = decodePb(buf);
       if(vehicles.length > 0){
-        vlog('ok', `  Decoded ${vehicles.length} vehicles in viewport`);
+        vlog('ok', `  ✓ ${vehicles.length} vehicles decoded via ${attempt.label}`);
         return vehicles;
       }
-      vlog('warn', `  Decoded 0 vehicles (empty feed or wrong format)`);
+      vlog('warn', `  Decoded 0 vehicles in viewport (feed OK but no matches)`);
+      // Still return empty — don't fall through to next attempt if feed decoded OK
+      // (empty viewport is valid — just no vehicles in view right now)
+      const FeedMessage = pbRoot.lookupType('FeedMessage');
+      const msg = FeedMessage.decode(new Uint8Array(buf));
+      const total = (msg.entity||[]).filter(e=>e.vehicle).length;
+      vlog('info', `  Feed has ${total} total vehicles globally (${vehicles.length} in viewport)`);
+      if(total > 0) return vehicles; // feed is working, just empty viewport
     }catch(e){
       vlog('warn', `  ${attempt.label}: ${e.name==='AbortError'?'timeout (15s)':e.message}`);
     }
@@ -2581,20 +2878,43 @@ const COV_CONTENT = {
   },
 };
 
+/* ── Coverage panel state (persists across domain switches) ── */
+let covPanelMinimized = false;
+
 function showCoveragePanel(domain){
   const panel = document.getElementById('cov-panel');
-  const cfg = COV_CONTENT[domain];
+  const cfg   = COV_CONTENT[domain];
   if(!cfg){ panel.classList.remove('on'); return; }
-  panel.innerHTML = `
-    <h4>${cfg.icon} ${cfg.title}</h4>
-    ${cfg.rows.map(r=>`
-      <div class="cv-row">
-        <div class="cv-dot" style="background:${r.color}"></div>
-        <div class="cv-text">${r.text}</div>
-      </div>`).join('')}
-    <div class="cv-note">${cfg.note.replace(/\n/g,'<br>')}</div>
-  `;
+
+  // Build inner HTML — split into title bar + body
+  const titleHtml = `
+    <div id="cov-panel-title" onclick="toggleCovPanel()">
+      <div id="cov-panel-title-text">${cfg.icon} ${cfg.title}</div>
+      <span id="cov-panel-chevron">▼</span>
+    </div>`;
+
+  const bodyHtml = `
+    <div id="cov-panel-body">
+      ${cfg.rows.map(r=>`
+        <div class="cv-row">
+          <div class="cv-dot" style="background:${r.color}"></div>
+          <div class="cv-text">${r.text}</div>
+        </div>`).join('')}
+      <div class="cv-note">${cfg.note.replace(/\n/g,'<br>')}</div>
+    </div>`;
+
+  panel.innerHTML = titleHtml + bodyHtml;
   panel.classList.add('on');
+
+  // Restore minimized state from last time
+  if(covPanelMinimized) panel.classList.add('minimized');
+  else panel.classList.remove('minimized');
+}
+
+function toggleCovPanel(){
+  const panel = document.getElementById('cov-panel');
+  covPanelMinimized = !panel.classList.contains('minimized');
+  panel.classList.toggle('minimized');
 }
 
 function hideCoveragePanel(){
