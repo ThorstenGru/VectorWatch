@@ -90,8 +90,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #locbtn{font-size:13px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;transition:color .15s}
 #locbtn:hover{color:#4fa8e8}
 #locbtn.active{color:#4fa8e8;border-color:#4fa8e8}
-#filterbar{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#0f1120;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-#filterbar::-webkit-scrollbar{display:none}
+.filterbar{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#0f1120;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.filterbar::-webkit-scrollbar{display:none}
 .fb{font-size:11px;padding:4px 12px;border-radius:14px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0}
 .fb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .fb.f-all.on    {color:#c8cce8;border-color:#4fa8e8;background:#141e30}
@@ -270,6 +270,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   font-size:10px;color:#45485e;line-height:1.55;
 }
 #cov-panel .cv-src{color:#4fa8e8;font-size:10px}
+
+.fb.sf-all.on    {color:#c8cce8;border-color:#4fa8e8;background:#141e30}
+.fb.sf-cargo.on  {color:#4fa8e8;border-color:#204878;background:#081020}
+.fb.sf-tanker.on {color:#e8a040;border-color:#885010;background:#201408}
+.fb.sf-pass.on   {color:#7dd460;border-color:#4a8830;background:#111e0e}
+.fb.sf-fish.on   {color:#48c8e8;border-color:#186878;background:#081820}
+.fb.sf-mil.on    {color:#e8a040;border-color:#885010;background:#201408}
+.fb.sf-rescue.on {color:#e85858;border-color:#882020;background:#200808}
+.fb.sf-sail.on   {color:#a0d0ff;border-color:#405870;background:#081018}
+.fb.sf-tug.on    {color:#c8a060;border-color:#685030;background:#181008}
+.fb.sf-hs.on     {color:#e060e8;border-color:#801890;background:#180820}
+.fb.lf-all.on    {color:#c8cce8;border-color:#4fa8e8;background:#141e30}
+.fb.lf-train.on  {color:#4fa8e8;border-color:#204878;background:#081020}
+.fb.lf-metro.on  {color:#e060e8;border-color:#801890;background:#180820}
+.fb.lf-tram.on   {color:#e8a040;border-color:#885010;background:#201408}
+.fb.lf-bus.on    {color:#7dd460;border-color:#4a8830;background:#111e0e}
+.fb.lf-ferry.on  {color:#48c8e8;border-color:#186878;background:#081820}
 @media(max-width:520px){
   .d-stats{grid-template-columns:repeat(2,1fr)}
   .d-fields{grid-template-columns:1fr 1fr}
@@ -291,17 +308,40 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button id="locbtn" onclick="locateMe()" title="Locate me">📍</button>
     <button id="logbtn" onclick="toggleLog()" title="Toggle debug log">📋 Log</button>
   </div>
-  <div id="filterbar">
-    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>✈ All flights</button>
+  <!-- AIR filters -->
+  <div id="filterbar-air" class="filterbar" style="display:flex">
+    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>✈ All</button>
     <button class="fb f-comm"   onclick="setFilter('commercial',this)"><span class="fb-dot" style="background:#7dd460"></span>✈ Commercial</button>
     <button class="fb f-priv"   onclick="setFilter('private',this)"><span class="fb-dot" style="background:#a090f0"></span>🛩 Private / GA</button>
     <button class="fb f-mil"    onclick="setFilter('military',this)"><span class="fb-dot" style="background:#e8a040"></span>⚔ Military</button>
     <button class="fb f-gov"    onclick="setFilter('government',this)"><span class="fb-dot" style="background:#48c8e8"></span>🏛 Government</button>
     <button class="fb f-rescue" onclick="setFilter('rescue',this)"><span class="fb-dot" style="background:#e85858"></span>🚑 Rescue / EMS</button>
     <button class="fb f-intel"  onclick="setFilter('intel',this)"><span class="fb-dot" style="background:#e060e8"></span>🔵 Intelligence</button>
-    <button class="fb f-special" onclick="setFilter('special',this)"><span class="fb-dot" style="background:#00e8c8"></span>🤖 Drones / Balloons / Special</button>
-    <button class="fb f-ufo"    onclick="setFilter('ufo',this)"><span class="fb-dot" style="background:#c8ff40"></span>❓ UFO — Unidentified</button>
-    <button class="fb f-alert"  onclick="setFilter('alert',this)"><span class="fb-dot" style="background:#ff4040"></span>🚨 Emergency / Alert</button>
+    <button class="fb f-special" onclick="setFilter('special',this)"><span class="fb-dot" style="background:#00e8c8"></span>🤖 Drones / Special</button>
+    <button class="fb f-ufo"    onclick="setFilter('ufo',this)"><span class="fb-dot" style="background:#c8ff40"></span>❓ UFO</button>
+    <button class="fb f-alert"  onclick="setFilter('alert',this)"><span class="fb-dot" style="background:#ff4040"></span>🚨 Emergency</button>
+  </div>
+  <!-- SEA filters -->
+  <div id="filterbar-sea" class="filterbar" style="display:none">
+    <button class="fb sf-all on" onclick="setSeaFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>⚓ All vessels</button>
+    <button class="fb sf-cargo"  onclick="setSeaFilter('cargo',this)"><span class="fb-dot" style="background:#4fa8e8"></span>📦 Cargo</button>
+    <button class="fb sf-tanker" onclick="setSeaFilter('tanker',this)"><span class="fb-dot" style="background:#e8a040"></span>🛢 Tanker</button>
+    <button class="fb sf-pass"   onclick="setSeaFilter('passenger',this)"><span class="fb-dot" style="background:#7dd460"></span>👥 Passenger</button>
+    <button class="fb sf-fish"   onclick="setSeaFilter('fishing',this)"><span class="fb-dot" style="background:#48c8e8"></span>🎣 Fishing</button>
+    <button class="fb sf-mil"    onclick="setSeaFilter('military',this)"><span class="fb-dot" style="background:#e8a040"></span>⚔ Military</button>
+    <button class="fb sf-rescue" onclick="setSeaFilter('rescue',this)"><span class="fb-dot" style="background:#e85858"></span>🚑 SAR / Rescue</button>
+    <button class="fb sf-sail"   onclick="setSeaFilter('sail',this)"><span class="fb-dot" style="background:#a0d0ff"></span>⛵ Sail / Pleasure</button>
+    <button class="fb sf-tug"    onclick="setSeaFilter('towing',this)"><span class="fb-dot" style="background:#c8a060"></span>⚙ Tug / Service</button>
+    <button class="fb sf-hs"     onclick="setSeaFilter('highspeed',this)"><span class="fb-dot" style="background:#e060e8"></span>💨 High-speed</button>
+  </div>
+  <!-- LAND filters -->
+  <div id="filterbar-land" class="filterbar" style="display:none">
+    <button class="fb lf-all on" onclick="setLandFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>🚂 All vehicles</button>
+    <button class="fb lf-train"  onclick="setLandFilter('train',this)"><span class="fb-dot" style="background:#4fa8e8"></span>🚆 Train</button>
+    <button class="fb lf-metro"  onclick="setLandFilter('metro',this)"><span class="fb-dot" style="background:#e060e8"></span>🚇 Metro</button>
+    <button class="fb lf-tram"   onclick="setLandFilter('tram',this)"><span class="fb-dot" style="background:#e8a040"></span>🚋 Tram</button>
+    <button class="fb lf-bus"    onclick="setLandFilter('bus',this)"><span class="fb-dot" style="background:#7dd460"></span>🚌 Bus</button>
+    <button class="fb lf-ferry"  onclick="setLandFilter('ferry',this)"><span class="fb-dot" style="background:#48c8e8"></span>⛴ Ferry</button>
   </div>
   <!-- Land country selector — only visible in land domain -->
   <div id="land-bar" style="display:none;align-items:center;gap:4px;padding:4px 10px;background:#0a0c14;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;font-size:11px">
@@ -606,6 +646,8 @@ function flightPhase(ft,vr,cat){
 
 /* ═══ STATE ════════════════════════════════════════════════════ */
 let flightMap={}, acCache={}, selected=null, activeFilter='all', query='', markers={};
+let seaFilter='all';   // active sea vessel type filter
+let landFilter='all';  // active land vehicle type filter
 let activeDomain='air'; // 'air' | 'sea' | 'land'
 let vesselMap={};  // MMSI → vessel object (sea domain)
 let vesselMarkers={};  // MMSI → Leaflet marker (sea domain)
@@ -716,11 +758,11 @@ async function probeApis(){
   for(const src of API_BASES){
     const direct=`${src.base}/v2/lat/${lat}/lon/${lon}/dist/50`;
     // Direct probe — 5s timeout (was 2s, too short for CDN cold start)
-    const d=await _rawFetch(direct,src.name+' direct',5000);
+    const d=await _rawFetch(direct,src.name+' direct',3000);
     if(d!==null){workingApi={...src,useProxy:false};vlog('ok',`Working: ${src.name} direct`);return workingApi;}
     // Proxy attempts — 8s each
     for(let i=0;i<PROXIES.length;i++){
-      const r=await _rawFetch(PROXIES[i](direct),`${src.name} proxy${i+1}`,8000);
+      const r=await _rawFetch(PROXIES[i](direct),`${src.name} proxy${i+1}`,5000);
       if(r!==null){workingApi={...src,useProxy:true,proxyIdx:i};vlog('ok',`Working: ${src.name} proxy${i+1}`);return workingApi;}
     }
   }
@@ -772,6 +814,7 @@ async function fetchViewport(manual){
   try {
     setStatus('load','Loading…');
     if(!workingApi){vlog('info','Probing APIs…');await probeApis();}
+    if(activeDomain !== 'air'){ isFetching=false; ring(false); return; } // switched away during probe
     if(!workingApi){
       if(Object.keys(flightMap).length===0)loadDemo();
       setStatus('err','All APIs unreachable — showing demo data');
@@ -780,7 +823,8 @@ async function fetchViewport(manual){
     }
     const tiles=getViewportTiles();
     setStatus('load',`Fetching ${tiles.length} area(s)…`);
-    const results=await Promise.all(tiles.map(t=>_rawFetch(buildUrl(t.lat,t.lon,QUERY_NM),`${workingApi.name}[${t.lat},${t.lon}]`,10000)));
+    const results=await Promise.all(tiles.map(t=>_rawFetch(buildUrl(t.lat,t.lon,QUERY_NM),`${workingApi.name}[${t.lat},${t.lon}]`,6000)));
+    if(activeDomain !== 'air'){ vlog('warn','Domain switched during fetch — discarding results'); return; }
     const seen=new Set(),allAc=[];let tileCount=0;
     results.forEach(j=>{if(!j)return;tileCount++;(j.ac||[]).forEach(a=>{if(a.hex&&!seen.has(a.hex)){seen.add(a.hex);allAc.push(a);}});});
     if(tileCount>0){
@@ -852,6 +896,54 @@ function setFilter(cat,el){
 }
 function onSearch(){query=document.getElementById('search').value.trim();renderMap();}
 
+/* ── SEA FILTER ────────────────────────────────────────────── */
+function setSeaFilter(cat, el){
+  seaFilter = cat;
+  document.querySelectorAll('#filterbar-sea .fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderSea();
+  // Zoom to matching vessels
+  if(cat !== 'all'){
+    const matches = Object.values(vesselMap).filter(v=>vesselFilterMatch(v));
+    if(matches.length > 0){
+      const bounds = L.latLngBounds(matches.map(v=>[v.lat,v.lng]));
+      map.flyToBounds(bounds.pad(0.15),{maxZoom:9,duration:1.0});
+    }
+  }
+}
+function vesselFilterMatch(v){
+  if(seaFilter==='all') return true;
+  const info = classifyVessel(v.typeCode||0);
+  if(seaFilter==='sail') return info.cat==='sail'||info.cat==='pleasure';
+  if(seaFilter==='towing') return info.cat==='towing'||info.cat==='port'||info.cat==='pilot';
+  return info.cat === seaFilter;
+}
+
+/* ── LAND FILTER ───────────────────────────────────────────── */
+// routeType → filter category
+function landRouteToFilterCat(rt){
+  const t=parseInt(rt)||3;
+  if(t===1||t===400||t===401||t===12) return 'metro';
+  if(t===0||t===5||t===6||t===900||t===901) return 'tram';
+  if(t===4) return 'ferry';
+  if(t===2||t===100||t===101||t===102||t===7) return 'train';
+  return 'bus'; // 3, 11, 700, 701 etc
+}
+function setLandFilter(cat, el){
+  landFilter = cat;
+  document.querySelectorAll('#filterbar-land .fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderLand();
+  // Zoom to matching vehicles
+  if(cat !== 'all'){
+    const matches = Object.values(landMap).filter(v=>landRouteToFilterCat(v.routeType)===cat);
+    if(matches.length > 0){
+      const bounds = L.latLngBounds(matches.map(v=>[v.lat,v.lng]));
+      map.flyToBounds(bounds.pad(0.1),{maxZoom:11,duration:1.0});
+    }
+  }
+}
+
 /* ═══ RENDER MAP ═══════════════════════════════════════════════ */
 function renderMap(){
   if(activeDomain !== 'air') return;   // never render air markers in other domains
@@ -876,7 +968,7 @@ function renderMap(){
     if(!dimmed||sel){
       const intel=INTEL_DB[(f.hex||'').toLowerCase()];
       markers[f.hex].bindTooltip(
-        `<b>${f.id}</b>${intel?' · 🔵 '+intel.agency:''}<br>${typeName(f.type)}<br>${f.alt?f.alt.toLocaleString()+' ft':'—'} · ${f.spd?f.spd+' kts':'—'}`,
+        `<b>${f.id}</b> ${CAT_ICON[f.category]||''} ${intel?' 🔵 '+intel.agency:''}<br>${typeName(f.type)}<br>${f.alt?f.alt.toLocaleString()+' ft':'—'} · ${f.spd?f.spd+' kts':'—'}`,
         {direction:'top',offset:[0,-8]}
       );
     }
@@ -1346,7 +1438,7 @@ function ring(on){document.getElementById('fetchring').className=on?'on':'';}
 function setStatus(t,msg){const el=document.getElementById('smsg');el.textContent=msg;el.className='s-'+t;}
 function startAutoRefresh(){
   clearInterval(autoTimer);
-  autoTimer=setInterval(()=>{if(!isFetching)fetchViewport(false);},20000);
+  autoTimer=setInterval(()=>{if(!isFetching)fetchViewport(false);},15000);
 }
 
 
@@ -1410,6 +1502,7 @@ function setDomain(domain, el){
 
   // ── 1. STOP all running sources ────────────────────────────
   clearInterval(autoTimer); autoTimer=null;   // air auto-refresh
+  clearTimeout(moveTimer); moveTimer=null;    // air debounce timer — CRITICAL
   if(aisSocket){ aisSocket.close(); aisSocket=null; } // sea WebSocket
   if(landTimer){ clearInterval(landTimer); landTimer=null; } // land poll
   clearTimeout(window._landMoveTimer);
@@ -1431,6 +1524,13 @@ function setDomain(domain, el){
   // ── 3. Reset UI ────────────────────────────────────────────
   activeDomain = domain;   // SET AFTER cleanup so guards don't fire prematurely
   selected=null;
+  // Show correct filter bar + reset filters for new domain
+  document.getElementById('filterbar-air').style.display  = domain==='air'  ? 'flex' : 'none';
+  document.getElementById('filterbar-sea').style.display  = domain==='sea'  ? 'flex' : 'none';
+  document.getElementById('filterbar-land').style.display = domain==='land' ? 'flex' : 'none';
+  // Reset filter selections
+  if(domain==='sea'){ seaFilter='all'; document.querySelectorAll('#filterbar-sea .fb').forEach(b=>b.classList.remove('on')); document.querySelector('.sf-all')?.classList.add('on'); }
+  if(domain==='land'){ landFilter='all'; document.querySelectorAll('#filterbar-land .fb').forEach(b=>b.classList.remove('on')); document.querySelector('.lf-all')?.classList.add('on'); }
   document.getElementById('detail').classList.remove('on');
   document.getElementById('fab').className='';
   document.getElementById('pill').textContent='—';
@@ -1574,9 +1674,10 @@ function handleAISMessage(msg){
 }
 
 function renderVessel(mmsi){
-  if(activeDomain !== 'sea') return;   // never render sea markers in other domains
+  if(activeDomain !== 'sea') return;
   const v = vesselMap[mmsi];
   if(!v || v.lat==null) return;
+  if(!vesselFilterMatch(v)) return; // sea filter
   const tinfo  = classifyVessel(v.typeCode||0);
   const color  = VESSEL_CAT_COLOR[tinfo.cat] || '#6b6e8a';
   const isSel  = selected === mmsi;
@@ -1603,9 +1704,16 @@ function renderVessel(mmsi){
 }
 
 function renderSea(){
+  // Remove markers for vessels not matching current filter
+  Object.keys(vesselMarkers).forEach(mmsi=>{
+    if(!vesselMap[mmsi] || !vesselFilterMatch(vesselMap[mmsi])){
+      map.removeLayer(vesselMarkers[mmsi]); delete vesselMarkers[mmsi];
+    }
+  });
   Object.keys(vesselMap).forEach(mmsi=>renderVessel(mmsi));
-  const total = Object.keys(vesselMap).length;
-  document.getElementById('pill').textContent = total.toLocaleString()+' vessels';
+  const visible = Object.keys(vesselMarkers).length;
+  const total2 = Object.keys(vesselMap).length;
+  document.getElementById('pill').textContent = (seaFilter!=='all'?visible+' / ':'')+total2.toLocaleString()+' vessels';
 }
 
 /* ── Sea Demo Data ──────────────────────────────────────────── */
@@ -1939,7 +2047,7 @@ async function fetchOperatorPositions(operator, overrideUrl){
     try{
       vlog('info', `GTFS-RT [${attempt.label}]: ${attempt.url.slice(0,80)}…`);
       const ctrl = new AbortController();
-      const tid  = setTimeout(()=>ctrl.abort(), 15000);
+      const tid  = setTimeout(()=>ctrl.abort(), 10000);
       const res  = await fetch(attempt.url, {
         signal:  ctrl.signal,
         headers: {'Accept': 'application/octet-stream, application/x-protobuf, */*'}
@@ -1948,22 +2056,37 @@ async function fetchOperatorPositions(operator, overrideUrl){
       if(!res.ok){ vlog('warn',`  HTTP ${res.status}`); continue; }
       let buf = await res.arrayBuffer();
       if(buf.byteLength < 10){ vlog('warn',`  Too small (${buf.byteLength}b)`); continue; }
+      // Sanity-check: reject HTML/JSON error pages from proxies
+      const probe = new Uint8Array(buf.slice(0,5));
+      const isHtml = probe[0]===0x3c; // '<' = HTML
+      const isJson = probe[0]===0x7b || probe[0]===0x5b; // '{' or '[' = JSON
+      if(isHtml || isJson){
+        vlog('warn', `  ${attempt.label}: response is HTML/JSON error page (${buf.byteLength}b) — skipping`);
+        continue;
+      }
       vlog('info', `  Raw: ${buf.byteLength} bytes — checking encoding…`);
       // Decompress gzip if needed (proxies often preserve Content-Encoding)
       buf = await decompressIfNeeded(buf);
       const vehicles = decodePb(buf);
+      // Count total in feed regardless of viewport
+      try{
+        const FeedMessage2 = pbRoot.lookupType('FeedMessage');
+        const msg2 = FeedMessage2.decode(new Uint8Array(buf));
+        const total = (msg2.entity||[]).filter(e=>e.vehicle).length;
+        vlog('info', `  Feed decoded: ${vehicles.length} vehicles (${total} total in feed)`);
+        if(vehicles.length > 0 || total > 0){
+          vlog('ok', `  ✓ ${attempt.label} success: ${vehicles.length} vehicles`);
+          return vehicles;
+        }
+      }catch(e2){ /* use vehicles array as-is */ }
       if(vehicles.length > 0){
         vlog('ok', `  ✓ ${vehicles.length} vehicles decoded via ${attempt.label}`);
         return vehicles;
       }
-      vlog('warn', `  Decoded 0 vehicles in viewport (feed OK but no matches)`);
-      // Still return empty — don't fall through to next attempt if feed decoded OK
-      // (empty viewport is valid — just no vehicles in view right now)
-      const FeedMessage = pbRoot.lookupType('FeedMessage');
-      const msg = FeedMessage.decode(new Uint8Array(buf));
-      const total = (msg.entity||[]).filter(e=>e.vehicle).length;
-      vlog('info', `  Feed has ${total} total vehicles globally (${vehicles.length} in viewport)`);
-      if(total > 0) return vehicles; // feed is working, just empty viewport
+      vlog('warn', `  Decoded 0 vehicles — feed may be empty or wrong format`);s decoded via ${attempt.label}`);
+        return vehicles;
+      }
+      vlog('warn', `  Decoded 0 vehicles — feed may be empty or wrong format`);
     }catch(e){
       vlog('warn', `  ${attempt.label}: ${e.name==='AbortError'?'timeout (15s)':e.message}`);
     }
@@ -1978,13 +2101,12 @@ function decodePb(buffer){
     const FeedMessage = pbRoot.lookupType('FeedMessage');
     const msg = FeedMessage.decode(new Uint8Array(buffer));
     const vehicles = [];
-    const bounds = map.getBounds().pad(0.1);
+    // Do NOT filter by viewport here — filter after fetching country
+    // so we can zoom to where vehicles actually are
     (msg.entity||[]).forEach(e=>{
       const vp = e.vehicle; if(!vp||!vp.position) return;
       const lat = vp.position.latitude, lng = vp.position.longitude;
       if(!lat||!lng) return;
-      // Filter to viewport for performance
-      if(!bounds.contains([lat,lng])) return;
       const id = vp.vehicle?.id || vp.vehicle?.label || e.id || '';
       vehicles.push({
         id,
@@ -2061,18 +2183,26 @@ async function fetchLandVehicles(){
 
   if(activeDomain!=='land') return; // switched away during fetch
   if(vehicles.length > 0){
-    // Merge into landMap
+    // Fly to country center first so viewport covers the data
+    const ccfg = LAND_COUNTRY_CONFIG[landCountry];
+    if(ccfg) map.setView(ccfg.center, ccfg.zoom, {animate:false});
+    // Now merge — all vehicles from this country's feed
     vehicles.forEach(v=>{ if(v.id) landMap[v.id]=v; });
-    // Prune out-of-view
-    const bounds = map.getBounds().pad(0.2);
-    Object.keys(landMap).forEach(id=>{
-      const v=landMap[id];
-      if(!bounds.contains([v.lat,v.lng])) delete landMap[id];
-    });
+    // Prune vehicles outside a padded country bbox for memory
+    const bbox = ccfg?.bbox;
+    if(bbox){
+      const [s,w,n,e] = bbox;
+      const padded = L.latLngBounds([[s-1,w-2],[n+1,e+2]]);
+      Object.keys(landMap).forEach(id=>{
+        const v=landMap[id];
+        if(!padded.contains([v.lat,v.lng])) delete landMap[id];
+      });
+    }
     const count = Object.keys(landMap).length;
     document.getElementById('pill').textContent = count.toLocaleString()+' vehicles';
-    document.getElementById('srcbadge').textContent = `trafiklab · ${count} vehicles`;
-    setStatus('ok',`${count} vehicles in view · ${new Date().toLocaleTimeString()}`);
+    document.getElementById('srcbadge').textContent = `${ccfg?.flag||''} ${landCountry} · ${count} live vehicles`;
+    setStatus('ok',`${count} live vehicles · ${new Date().toLocaleTimeString()}`);
+    vlog('ok', `Live data: ${count} vehicles for ${landCountry}`);
     renderLand();
   } else {
     vlog('warn','No vehicle positions received — using demo data for '+landCountry);
@@ -2095,6 +2225,7 @@ function renderLand(){
   });
   Object.keys(landMap).forEach(id=>{
     const v=landMap[id];
+    if(landFilter!=='all' && landRouteToFilterCat(v.routeType)!==landFilter) return; // land filter
     const ti=landTypeInfo(v.routeType||3);
     const isSel=selected===id;
     const color=isSel?'#fff':ti.color;
@@ -2402,7 +2533,7 @@ function startLandPoll(){
   });
   landTimer = setInterval(()=>{
     if(activeDomain==='land') fetchLandVehicles();
-  }, 12000); // 12s interval
+  }, 8000);  // 8s interval
   vlog('info','Land poll started — auto-detect active');
 }
 
