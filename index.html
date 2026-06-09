@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>FlightWatch</title>
+<title>VectorWatch</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/protobufjs@7/dist/protobuf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0f18;color:#e0e2ee;overflow:hidden}
@@ -21,6 +22,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #rbtn.spin{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 #logbtn{font-size:11px;padding:4px 9px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0}
+.dtab{font-size:11px;padding:4px 10px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;transition:all .15s}
+.dtab.on{color:#fff;background:#252840;border-color:#4fa8e8}
+.dtab:hover:not(.on){color:#aaa}
+#locbtn{font-size:13px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;transition:color .15s}
+#locbtn:hover{color:#4fa8e8}
+#locbtn.active{color:#4fa8e8;border-color:#4fa8e8}
 #filterbar{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#0f1120;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #filterbar::-webkit-scrollbar{display:none}
 .fb{font-size:11px;padding:4px 12px;border-radius:14px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0}
@@ -31,7 +38,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .fb.f-mil.on    {color:#e8a040;border-color:#885010;background:#201408}
 .fb.f-gov.on    {color:#48c8e8;border-color:#186878;background:#081820}
 .fb.f-rescue.on {color:#e85858;border-color:#882020;background:#200808}
-.fb.f-intel.on  {color:#e060e8;border-color:#801890;background:#180820}
+.fb.f-intel.on   {color:#e060e8;border-color:#801890;background:#180820}
+.fb.f-special.on {color:#00e8c8;border-color:#007860;background:#001e18}
+.fb.f-ufo.on     {color:#c8ff40;border-color:#607820;background:#181e04}
+.fb.f-alert.on   {color:#ff4040;border-color:#a02020;background:#200808;animation:pulse .8s infinite}
 #map{flex:1;min-height:0;position:relative}
 #fetchring{position:absolute;top:12px;right:56px;width:16px;height:16px;border-radius:50%;border:2px solid transparent;border-top-color:#4fa8e8;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s}
 #fetchring.on{opacity:1;animation:spin .8s linear infinite}
@@ -73,6 +83,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .ct-rescue     {color:#e85858;background:#200808;border-color:#782020}
 .ct-intel      {color:#e060e8;background:#160820;border-color:#700880}
 .ct-unknown    {color:#6b6e8a;background:#161820;border-color:#2a2d42}
+.ct-drone      {color:#00e8c8;background:#001e18;border-color:#007860}
+.ct-balloon    {color:#40c8ff;background:#00101e;border-color:#006090}
+.ct-ultralight {color:#e8d040;background:#1e1800;border-color:#806000}
+.ct-glider     {color:#a0d0ff;background:#081020;border-color:#204870}
+.ct-special    {color:#00e8c8;background:#001e18;border-color:#007860}
+.ct-ufo        {color:#c8ff40;background:#101800;border-color:#507010}
+.ct-alert      {color:#ff4040;background:#200404;border-color:#a01010;animation:pulse .8s infinite}
 .intel-tag{display:inline-flex;align-items:center;gap:4px;background:#1a0826;border:1px solid #800890;border-radius:8px;padding:3px 10px;font-size:11px;color:#e060e8;font-weight:500}
 .sq-normal  {background:#0a1a06;color:#7dd460;border:1px solid #3a6020;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:500}
 .sq-emerg   {background:#220404;color:#ff5555;border:1px solid #882020;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;animation:pulse 1s infinite}
@@ -126,6 +143,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .leaflet-control-attribution a{color:#777!important}
 .leaflet-attribution-flag{display:none!important}
 
+#land-bar::-webkit-scrollbar{display:none}
+.lc{font-size:11px;padding:3px 9px;border-radius:12px;border:1px solid #232636;background:transparent;color:#55587a;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.lc:hover{color:#aaa}
+.lc.on{background:#141e30;border-color:#4fa8e8;color:#c8cce8}
 @media(max-width:520px){
   .d-stats{grid-template-columns:repeat(2,1fr)}
   .d-fields{grid-template-columns:1fr 1fr}
@@ -135,31 +156,56 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="logo">✈ <span>FlightWatch</span></div>
+    <div id="logo">◈ <span>VectorWatch</span></div>
+    <div id="domain-tabs" style="display:flex;gap:2px;flex-shrink:0">
+      <button class="dtab on" id="tab-air" onclick="setDomain('air',this)" title="Air traffic">✈ Air</button>
+      <button class="dtab"    id="tab-sea" onclick="setDomain('sea',this)" title="Maritime vessels">⚓ Sea</button>
+      <button class="dtab"    id="tab-land" onclick="setDomain('land',this)" title="Sweden land transit">🚂 Land</button>
+    </div>
     <input type="search" id="search" placeholder="Callsign, registration, type…" oninput="onSearch()"/>
     <span class="pill" id="pill">—</span>
     <button id="rbtn" onclick="fetchViewport(true)" title="Refresh">↻</button>
+    <button id="locbtn" onclick="locateMe()" title="Locate me">📍</button>
     <button id="logbtn" onclick="toggleLog()">📋 Log</button>
   </div>
   <div id="filterbar">
-    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>All flights</button>
-    <button class="fb f-comm"   onclick="setFilter('commercial',this)"><span class="fb-dot" style="background:#7dd460"></span>Commercial</button>
-    <button class="fb f-priv"   onclick="setFilter('private',this)"><span class="fb-dot" style="background:#a090f0"></span>Private / GA</button>
-    <button class="fb f-mil"    onclick="setFilter('military',this)"><span class="fb-dot" style="background:#e8a040"></span>Military</button>
-    <button class="fb f-gov"    onclick="setFilter('government',this)"><span class="fb-dot" style="background:#48c8e8"></span>Government</button>
-    <button class="fb f-rescue" onclick="setFilter('rescue',this)"><span class="fb-dot" style="background:#e85858"></span>Rescue / EMS</button>
-    <button class="fb f-intel"  onclick="setFilter('intel',this)"><span class="fb-dot" style="background:#e060e8"></span>Intelligence</button>
+    <button class="fb f-all on" onclick="setFilter('all',this)"><span class="fb-dot" style="background:#c8cce8"></span>✈ All flights</button>
+    <button class="fb f-comm"   onclick="setFilter('commercial',this)"><span class="fb-dot" style="background:#7dd460"></span>✈ Commercial</button>
+    <button class="fb f-priv"   onclick="setFilter('private',this)"><span class="fb-dot" style="background:#a090f0"></span>🛩 Private / GA</button>
+    <button class="fb f-mil"    onclick="setFilter('military',this)"><span class="fb-dot" style="background:#e8a040"></span>⚔ Military</button>
+    <button class="fb f-gov"    onclick="setFilter('government',this)"><span class="fb-dot" style="background:#48c8e8"></span>🏛 Government</button>
+    <button class="fb f-rescue" onclick="setFilter('rescue',this)"><span class="fb-dot" style="background:#e85858"></span>🚑 Rescue / EMS</button>
+    <button class="fb f-intel"  onclick="setFilter('intel',this)"><span class="fb-dot" style="background:#e060e8"></span>🔵 Intelligence</button>
+    <button class="fb f-special" onclick="setFilter('special',this)"><span class="fb-dot" style="background:#00e8c8"></span>🤖 Drones / Balloons / Special</button>
+    <button class="fb f-ufo"    onclick="setFilter('ufo',this)"><span class="fb-dot" style="background:#c8ff40"></span>❓ UFO — Unidentified</button>
+    <button class="fb f-alert"  onclick="setFilter('alert',this)"><span class="fb-dot" style="background:#ff4040"></span>🚨 Emergency / Alert</button>
   </div>
+  <!-- Land country selector — only visible in land domain -->
+  <div id="land-bar" style="display:none;align-items:center;gap:4px;padding:4px 10px;background:#0a0c14;border-bottom:1px solid #1e2130;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;font-size:11px">
+    <span style="color:#6b6e8a;white-space:nowrap;flex-shrink:0">🚂 Country:</span>
+    <button class="lc on" id="lc-se" onclick="setLandCountry('SE',this)" style="background:#141e30;border-color:#4fa8e8;color:#c8cce8">🇸🇪 Sweden</button>
+    <button class="lc"    id="lc-no" onclick="setLandCountry('NO',this)">🇳🇴 Norway</button>
+    <button class="lc"    id="lc-fi" onclick="setLandCountry('FI',this)">🇫🇮 Finland</button>
+    <button class="lc"    id="lc-dk" onclick="setLandCountry('DK',this)">🇩🇰 Denmark</button>
+    <button class="lc"    id="lc-de" onclick="setLandCountry('DE',this)">🇩🇪 Germany</button>
+    <button class="lc"    id="lc-nl" onclick="setLandCountry('NL',this)">🇳🇱 Netherlands</button>
+    <button class="lc"    id="lc-fr" onclick="setLandCountry('FR',this)">🇫🇷 France</button>
+    <button class="lc"    id="lc-ch" onclick="setLandCountry('CH',this)">🇨🇭 Switzerland</button>
+    <button class="lc"    id="lc-at" onclick="setLandCountry('AT',this)">🇦🇹 Austria</button>
+    <button class="lc"    id="lc-be" onclick="setLandCountry('BE',this)">🇧🇪 Belgium</button>
+    <button class="lc"    id="lc-ie" onclick="setLandCountry('IE',this)">🇮🇪 Ireland</button>
+  </div>
+
   <div id="map"><div id="fetchring"></div></div>
   <div id="sbar"><span id="smsg">Initialising…</span><span id="srcbadge">—</span></div>
 </div>
 
-<button id="fab" onclick="deselect()">✕ Deselect</button>
+<button id="fab" onclick="activeDomain==='sea'?deselectVessel():activeDomain==='land'?deselectLand():deselect()">✕ Deselect</button>
 
 <!-- LOG PANEL -->
 <div id="logpanel" class="hidden" style="position:absolute;bottom:calc(20vh + 26px);left:0;right:0;z-index:2000;background:rgba(8,10,18,.97);border-top:1px solid #2a2d42;max-height:200px;overflow-y:auto;padding:8px 10px;font-size:10px;font-family:ui-monospace,monospace">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-    <span style="color:#4fa8e8;font-weight:600">API Debug Log</span>
+    <span style="color:#4fa8e8;font-weight:600">VectorWatch — API Debug Log</span>
     <button onclick="toggleLog()" style="background:none;border:none;color:#6b6e8a;cursor:pointer;font-size:14px">×</button>
   </div>
   <div id="loglines"></div>
@@ -213,13 +259,68 @@ const MIL_PFX=['RCH','REACH','ATLAS','JAKE','GOLD','IRON','VENOM','GHOST','HAWK'
 const AL2=new Set(['SK','LH','BA','AF','KL','AY','DY','TK','FR','UA','AA','DL','WN','QR','EK','EY','SQ','CX','NH','JL','OS','LX','IB','AZ','TP','SN','U2','W6','LS','BY','HV','LO','OK','FI','TF','GL','VY','EI','RO','BT','PC']);
 const AL3=new Set(['SAS','NOZ','NAX','DLH','EWG','CLH','CFG','BAW','EZY','TOM','VIR','AFR','TVF','KLM','TRA','IBE','VLG','AZA','ITY','FIN','THY','ELY','UAE','ETD','QTR','SVA','GFA','SIA','MAS','THA','CPA','CSN','CCA','ANZ','QFA','TAM','GOL','AZU','LAN','AAL','UAL','DAL','SWA','ASA','JBU','NKS','AFL','LOT','WZZ','RYR','EIN','VOE']);
 
+/* ADS-B emitter category → flight category */
+const EMITTER_SPECIAL = {
+  'B1':'glider',      // Glider / sailplane
+  'B2':'balloon',     // Lighter-than-air (balloon, airship)
+  'B3':'rescue',      // Parachutist / skydiver
+  'B4':'ultralight',  // Ultralight / hang-glider / paraglider
+  'B6':'drone',       // Unmanned aerial vehicle
+  'B7':'special',     // Space / trans-atmospheric vehicle
+  'C1':'government',  // Surface emergency vehicle
+  'C2':'government',  // Surface service vehicle
+  'C3':'special',     // Tethered balloon / point obstacle
+};
+
+function isUFO(a) {
+  const hex = (a.hex||'').toLowerCase();
+  const cs  = (a.flight||'').trim();
+  const alt = typeof a.alt_baro === 'number' ? a.alt_baro : 0;
+  const spd = a.gs || 0;
+  const cat = a.category || '';
+  // Non-ICAO address (starts with ~) = ghost / TIS-B rebroadcast
+  if(hex.startsWith('~')) return true;
+  // All-zeros ICAO = invalid/spoofed transponder
+  if(hex==='000000' || hex==='ffffff') return true;
+  // Physically impossible for category (spoofed or anomalous)
+  if(cat==='A1' && spd > 600) return true;   // Light aircraft > 600kts
+  if(cat==='A1' && alt > 55000) return true;  // Light aircraft > 55,000ft
+  if(cat==='B4' && alt > 20000) return true;  // Ultralight > 20,000ft
+  if(cat==='B6' && alt > 60000) return true;  // Drone > 60,000ft
+  // ADSBx "interesting" flag (bit 1 of dbFlags)
+  if((a.dbFlags||0) & 2) return true;
+  return false;
+}
+
+function isAlert(a) {
+  const sqk = a.squawk || '';
+  const emerg = a.emergency || 'none';
+  if(['7500','7600','7700'].includes(sqk)) return true;
+  if(emerg !== 'none' && emerg !== '' && emerg !== 'reserved') return true;
+  // Abnormal altitude indications
+  if(typeof a.alt_baro === 'number' && a.alt_baro < -1000) return true;
+  return false;
+}
+
 function classify(a){
   const hex=(a.hex||'').toLowerCase(), cs=(a.flight||'').trim().toUpperCase(), t=(a.t||'').toUpperCase();
+  const cat=(a.category||'');
+
+  // Emergency/alert always takes top priority
+  if(isAlert(a)) return 'alert';
+
+  // UFO / anomalous / unidentified
+  if(isUFO(a)) return 'ufo';
+
+  // Special ADS-B emitter categories
+  if(EMITTER_SPECIAL[cat]) return EMITTER_SPECIAL[cat];
+
+  // Intel / military
   if(INTEL_DB[hex]) return 'intel';
   for(const p of INTEL_CS_PFX) if(cs.startsWith(p)) return 'intel';
   if(SIGINT_TYPES.has(t)&&(a.dbFlags||0)&1) return 'intel';
   if((a.dbFlags||0)&1) return 'military';
-  if((a.squawk||'')==='7700') return 'rescue';
+
   if(!cs) return 'unknown';
   for(const p of RESCUE_PFX) if(cs.startsWith(p)) return 'rescue';
   for(const p of GOVT_PFX)   if(cs.startsWith(p)) return 'government';
@@ -233,13 +334,94 @@ function classify(a){
   return 'unknown';
 }
 const CAT={
-  commercial:{label:'Commercial',  color:'#7dd460'},
-  private:   {label:'Private / GA',color:'#a090f0'},
-  military:  {label:'Military',    color:'#e8a040'},
-  government:{label:'Government',  color:'#48c8e8'},
-  rescue:    {label:'Rescue / EMS',color:'#e85858'},
-  intel:     {label:'Intelligence',color:'#e060e8'},
-  unknown:   {label:'Other',       color:'#6b6e8a'},
+  commercial: {label:'Commercial airline',          color:'#7dd460'},
+  private:    {label:'Private / General aviation',  color:'#a090f0'},
+  military:   {label:'Military',                    color:'#e8a040'},
+  government: {label:'Government / State',          color:'#48c8e8'},
+  rescue:     {label:'Rescue / Emergency services', color:'#e85858'},
+  intel:      {label:'Intelligence agency',         color:'#e060e8'},
+  drone:      {label:'Drone / UAV',                 color:'#00e8c8'},
+  balloon:    {label:'Balloon / Airship',           color:'#40c8ff'},
+  ultralight: {label:'Ultralight / Paraglider',     color:'#e8d040'},
+  glider:     {label:'Glider / Sailplane',          color:'#a0d0ff'},
+  special:    {label:'Special / Space vehicle',     color:'#00e8c8'},
+  ufo:        {label:'Unidentified / Anomalous',    color:'#c8ff40'},
+  alert:      {label:'Emergency / Alert',           color:'#ff4040'},
+  unknown:    {label:'Other / Unknown',             color:'#6b6e8a'},
+};
+
+
+/* Category icons */
+const CAT_ICON = {
+  commercial: '✈',
+  private:    '🛩',
+  military:   '⚔',
+  government: '🏛',
+  rescue:     '🚑',
+  intel:      '🔵',
+  drone:      '🤖',
+  balloon:    '🎈',
+  ultralight: '🪂',
+  glider:     '🛸',
+  special:    '🚀',
+  ufo:        '❓',
+  alert:      '🚨',
+  unknown:    '●',
+};
+/* ═══ AIS / SEA VESSEL TYPES ═════════════════════════════════ */
+// AIS ship type codes → category + label + icon
+// https://www.itu.int/rec/R-REC-M.1371/en
+function classifyVessel(typeCode){
+  const t = parseInt(typeCode)||0;
+  if(t===0)                          return {cat:'unknown',    label:'Unknown vessel',        icon:'🚢'};
+  if(t>=20&&t<=28)                   return {cat:'special',    label:'Wing-in-ground craft',  icon:'🛥'};
+  if(t===29)                         return {cat:'rescue',     label:'Search and rescue',     icon:'🚑'};
+  if(t===30)                         return {cat:'fishing',    label:'Fishing vessel',        icon:'🎣'};
+  if(t===31||t===32)                 return {cat:'towing',     label:'Towing vessel',         icon:'⛵'};
+  if(t===33||t===34)                 return {cat:'special',    label:'Dredging / underwater', icon:'🔧'};
+  if(t===35)                         return {cat:'military',   label:'Military vessel',       icon:'⚔'};
+  if(t===36)                         return {cat:'sail',       label:'Sailing vessel',        icon:'⛵'};
+  if(t===37)                         return {cat:'pleasure',   label:'Pleasure craft',        icon:'🛥'};
+  if(t>=40&&t<=49)                   return {cat:'highspeed',  label:'High-speed craft',      icon:'💨'};
+  if(t===50)                         return {cat:'pilot',      label:'Pilot vessel',          icon:'🧭'};
+  if(t===51)                         return {cat:'rescue',     label:'Search and rescue vessel',icon:'🚑'};
+  if(t===52)                         return {cat:'towing',     label:'Tug',                   icon:'⛽'};
+  if(t===53)                         return {cat:'port',       label:'Port tender',           icon:'🚤'};
+  if(t===55)                         return {cat:'government', label:'Law enforcement',       icon:'🏛'};
+  if(t===57||t===58)                 return {cat:'government', label:'Medical / hospital',    icon:'🚑'};
+  if(t>=60&&t<=69)                   return {cat:'passenger',  label:'Passenger vessel',      icon:'👥'};
+  if(t>=70&&t<=79)                   return {cat:'cargo',      label:'Cargo vessel',          icon:'📦'};
+  if(t>=80&&t<=89)                   return {cat:'tanker',     label:'Tanker',                icon:'🛢'};
+  if(t>=90&&t<=99)                   return {cat:'other',      label:'Other vessel type',     icon:'🚢'};
+  return                                     {cat:'unknown',   label:'Unknown vessel',        icon:'🚢'};
+}
+
+// AIS Navigation status → human label
+const NAVSTAT_LABEL = {
+  0:'Under way (engine)', 1:'At anchor', 2:'Not under command',
+  3:'Restricted maneuverability', 4:'Constrained by draught',
+  5:'Moored', 6:'Aground', 7:'Engaged in fishing',
+  8:'Under way (sailing)', 11:'Towing astern', 12:'Pushing ahead',
+  14:'SART / MOB / EPIRB active',
+};
+
+const VESSEL_CAT_COLOR = {
+  cargo:     '#4fa8e8',  // blue
+  tanker:    '#e8a040',  // amber
+  passenger: '#7dd460',  // green
+  fishing:   '#48c8e8',  // cyan
+  military:  '#e8a040',  // amber (same as air)
+  rescue:    '#e85858',  // red
+  sail:      '#a0d0ff',  // light blue
+  pleasure:  '#a090f0',  // purple
+  towing:    '#c8a060',  // brown
+  highspeed: '#e060e8',  // magenta
+  government:'#48c8e8',  // cyan
+  port:      '#6b9e8a',  // teal
+  pilot:     '#8ae8a0',  // mint
+  special:   '#00e8c8',  // teal
+  other:     '#6b6e8a',  // grey
+  unknown:   '#3a3d52',  // dark grey
 };
 
 /* ═══ TYPE NAMES ══════════════════════════════════════════════ */
@@ -263,10 +445,23 @@ const TYPE_NAMES={
   EC35:'Airbus H135',EC45:'Airbus H145',S92:'Sikorsky S-92',AW139:'Leonardo AW139',
   DH8D:'Bombardier Dash 8 Q400',AT75:'ATR 72-500',AT76:'ATR 72-600',
   CRJ2:'Bombardier CRJ-200',CRJ7:'Bombardier CRJ-700',CRJ9:'Bombardier CRJ-900',
+  // Drones / UAV
+  MQ9 :'General Atomics MQ-9 Reaper',MQ1 :'General Atomics MQ-1 Predator',
+  GL5D:'Northrop Grumman RQ-4 Global Hawk',RQ4 :'Northrop Grumman RQ-4 Global Hawk',
+  PRDL:'General Atomics MQ-1 Predator',FIRE:'General Atomics MQ-9 Reaper',
+  // Balloons / Airships
+  BALL:'High-altitude balloon',BLON:'Stratospheric balloon',
+  SHIP:'Airship / Blimp',HBAL:'High-altitude balloon',
+  // Gliders
+  ASK2:'Schleicher ASK 21',DG40:'DG-400 Motor Glider',
+  // Space
+  U2  :'Lockheed U-2 Dragon Lady (stratospheric)',
 };
 function typeName(c){return TYPE_NAMES[c]||c||'Unknown'}
-function flightPhase(ft,vr){
+function flightPhase(ft,vr,cat){
   if(ft===null||ft<150) return 'Departing / On ground';
+  if(cat==='balloon')   return ft>50000?'Stratospheric float':'Ascending / drifting';
+  if(cat==='drone')     return ft>40000?'High-altitude cruise':'Operational altitude';
   if(vr>3)  return 'Climbing';
   if(vr<-3) return 'Descending';
   return 'Cruising';
@@ -274,6 +469,14 @@ function flightPhase(ft,vr){
 
 /* ═══ STATE ════════════════════════════════════════════════════ */
 let flightMap={}, acCache={}, selected=null, activeFilter='all', query='', markers={};
+let activeDomain='air'; // 'air' | 'sea' | 'land'
+let vesselMap={};  // MMSI → vessel object (sea domain)
+let vesselMarkers={};  // MMSI → Leaflet marker (sea domain)
+let aisSocket=null;  // WebSocket for aisstream.io
+let landMap={};      // vehicleId → land vehicle
+let landMarkers={};  // vehicleId → Leaflet marker
+let landTimer=null;  // poll interval
+let landCountry='SE'; // currently selected land country
 let autoTimer=null, moveTimer=null, isFetching=false, workingApi=null;
 
 /* ═══ MAP ══════════════════════════════════════════════════════ */
@@ -401,7 +604,7 @@ function parseV2(ac){
         country:a.ownOp||'—',lat:a.lat,lng:a.lon,alt:ft,
         spd:a.gs?Math.round(a.gs):null,hdg:a.track?Math.round(a.track):0,
         vrate:a.baro_rate||0,sqk:a.squawk||'—',emergency:a.emergency||'none',
-        dbFlags:a.dbFlags||0,phase:flightPhase(ft,a.baro_rate||0),category:classify(a)};
+        dbFlags:a.dbFlags||0,raw_cat:a.category||'',phase:flightPhase(ft,a.baro_rate||0,EMITTER_SPECIAL[a.category||'']||''),category:classify(a)};
     });
 }
 
@@ -446,7 +649,11 @@ function loadDemo(){
    {id:'N4782K',hex:'a81c4f',reg:'N4782K',type:'C172',country:'',lat:41.8,lng:-88.0,alt:9500,spd:110,hdg:88,vrate:0,sqk:'1200',emergency:'none',phase:'Cruising',category:'private',dbFlags:0},
    {id:'MEDEVAC1',hex:'4acf01',reg:'SE-JEV',type:'EC35',country:'',lat:59.3,lng:18.1,alt:1200,spd:130,hdg:42,vrate:6,sqk:'7700',emergency:'general',phase:'Climbing',category:'rescue',dbFlags:0},
    {id:'POLICE1',hex:'4ab111',reg:'SE-HPX',type:'B350',country:'POLISEN',lat:59.4,lng:17.9,alt:900,spd:140,hdg:22,vrate:0,sqk:'0020',emergency:'none',phase:'Cruising',category:'government',dbFlags:0},
-   {id:'SIGINT1',hex:'ae040e',reg:'64-14841',type:'RC35',country:'USAF',lat:52.1,lng:14.2,alt:33000,spd:480,hdg:90,vrate:0,sqk:'2100',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1},
+   {id:'SIGINT1',hex:'ae040e',reg:'64-14841',type:'RC35',country:'USAF',lat:52.1,lng:14.2,alt:33000,spd:480,hdg:90,vrate:0,sqk:'2100',emergency:'none',phase:'Cruising',category:'intel',dbFlags:1,raw_cat:''},
+   {id:'RQ4B',   hex:'ae9901',reg:'10-2049', type:'GL5D',country:'USAF',lat:48.2,lng:16.4,alt:58000,spd:310,hdg:270,vrate:0,sqk:'4401',emergency:'none',phase:'Cruising',category:'drone',  dbFlags:1,raw_cat:'B6'},
+   {id:'HBAL042',hex:'a1f901',reg:'N604HB', type:'BALL',country:'Google',lat:44.1,lng:22.3,alt:65000,spd:48, hdg:310,vrate:0,sqk:'1200',emergency:'none',phase:'Cruising',category:'balloon', dbFlags:0,raw_cat:'B2'},
+   {id:'~123456',hex:'~123456',reg:'',      type:'',   country:'',     lat:51.5,lng:9.2, alt:123100,spd:0,  hdg:0,  vrate:0,sqk:'1400',emergency:'none',phase:'Cruising',category:'ufo',     dbFlags:0,raw_cat:'A0'},
+   {id:'AAL234', hex:'a23456',reg:'N501AA', type:'B738',country:'American Airlines',lat:53.1,lng:-1.2,alt:32000,spd:440,hdg:265,vrate:0,sqk:'7700',emergency:'general',phase:'Cruising',category:'alert',dbFlags:0,raw_cat:'A3'},
   ].forEach(f=>{flightMap[f.hex]=f;});
 }
 
@@ -461,8 +668,23 @@ function setFilter(cat,el){
   activeFilter=cat;
   document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
-  if(selected){const f=Object.values(flightMap).find(x=>x.id===selected);if(f&&cat!=='all'&&f.category!==cat)deselect(true);}
+  if(selected){
+    const f=Object.values(flightMap).find(x=>x.id===selected);
+    if(f&&cat!=='all'&&f.category!==cat)deselect(true);
+  }
   renderMap();
+  // Zoom to bounds of filtered aircraft (if not 'all' and enough planes visible)
+  if(cat!=='all'){
+    const vis=filtered();
+    if(vis.length>0 && vis.length<=500){
+      if(vis.length===1){
+        map.flyTo([vis[0].lat,vis[0].lng],8,{duration:1.0,easeLinearity:.5});
+      } else {
+        const bounds=L.latLngBounds(vis.map(f=>[f.lat,f.lng]));
+        map.flyToBounds(bounds.pad(0.15),{maxZoom:9,duration:1.2,easeLinearity:.5});
+      }
+    }
+  }
 }
 function onSearch(){query=document.getElementById('search').value.trim();renderMap();}
 
@@ -517,6 +739,23 @@ function drawRoute(f,route){
     .bindTooltip(`<b>⏩ ${m.iata_code||m.icao_code}</b><br>${m.name}`,{direction:'top'}).addTo(routeLayer);
   routeLayer.addTo(map);
 }
+/* ── VESSEL ICON ─────────────────────────────────────────────── */
+function vesselIcon(hdg, color, sz, op){
+  const s = sz||18;
+  // Top-down ship silhouette: pointed bow (top), wider stern (bottom)
+  return L.divIcon({
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 32 40"
+      style="transform:rotate(${hdg||0}deg);opacity:${op||1};display:block;overflow:visible">
+      <g fill="${color}" stroke="#0a0c14" stroke-width="1.3" stroke-linejoin="round">
+        <!-- Hull: pointed bow at top, wide stern at bottom -->
+        <path d="M16,2 L26,12 L24,36 L8,36 L6,12 Z"/>
+        <!-- Superstructure/bridge -->
+        <rect x="12" y="14" width="8" height="8" rx="1.5"/>
+      </g></svg>`,
+    className:'', iconSize:[s,s], iconAnchor:[s/2, s*0.6]
+  });
+}
+
 function haverDist(a1,o1,a2,o2){
   const R=3440.1,dA=(a2-a1)*Math.PI/180,dO=(o2-o1)*Math.PI/180;
   return 2*R*Math.atan2(Math.sqrt(Math.sin(dA/2)**2+Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2),Math.sqrt(1-Math.sin(dA/2)**2-Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2));
@@ -613,9 +852,23 @@ function renderDetail(f){
   let html = '';
 
   // ── Status row ──────────────────────────────────────────────
+  const catIcon = CAT_ICON[f.category]||'●';
+  const isUFOflight  = f.category === 'ufo';
+  const isAlertflight = f.category === 'alert';
+  const isSpecialflight = ['drone','balloon','ultralight','glider','special'].includes(f.category);
+  const emitCatLabel = {
+    B1:'Glider / Sailplane', B2:'Balloon or Airship', B3:'Parachutist / Skydiver',
+    B4:'Ultralight / Hang-glider / Paraglider', B6:'Unmanned Aerial Vehicle (Drone)',
+    B7:'Space / Trans-atmospheric Vehicle', C1:'Surface Emergency Vehicle',
+    C2:'Surface Service Vehicle', C3:'Tethered Balloon / Obstacle',
+  };
+  const emitLabel = emitCatLabel[f.raw_cat||''] || '';
   html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
     <span class="${sqSt.cls}">${sqSt.label}</span>
     ${intel ? `<span class="intel-tag">🔵 ${intel.agency} — ${intel.country}</span>` : ''}
+    ${isUFOflight ? `<span style="background:#1a2000;border:1px solid #607010;border-radius:8px;padding:3px 10px;font-size:11px;color:#c8ff40;font-weight:600">⚠ Unidentified / Anomalous signal</span>` : ''}
+    ${isAlertflight ? `<span style="background:#200404;border:1px solid #a01010;border-radius:8px;padding:3px 10px;font-size:11px;color:#ff4040;font-weight:600;animation:pulse .8s infinite">🚨 Active emergency or alert</span>` : ''}
+    ${emitLabel ? `<span style="background:#001818;border:1px solid #006050;border-radius:8px;padding:3px 10px;font-size:11px;color:#00e8c8">${emitLabel}</span>` : ''}
   </div>`;
 
   // ── Header: callsign + type + close ─────────────────────────
@@ -623,7 +876,7 @@ function renderDetail(f){
     <div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="d-callsign">${f.id}</span>
-        <span class="ctag ct-${f.category}">${cat.label}</span>
+        <span class="ctag ct-${f.category}">${CAT_ICON[f.category]||'●'} ${cat.label}</span>
       </div>
       <div class="d-subtitle">${aircraftType}${manufacturer ? ' · ' + manufacturer : ''}</div>
     </div>
@@ -723,6 +976,37 @@ function renderDetail(f){
     </div>`;
   }
 
+  // UFO explanation
+  if(isUFOflight){
+    const reasons = [];
+    if((f.hex||'').startsWith('~')) reasons.push('Non-ICAO address (TIS-B ghost rebroadcast)');
+    if(f.hex==='000000') reasons.push('Invalid all-zero ICAO24 transponder code');
+    if(f.hex==='ffffff') reasons.push('Invalid all-ones ICAO24 transponder code');
+    if((f.dbFlags||0)&2) reasons.push('Flagged as "interesting" by ADS-B Exchange database');
+    if(f.raw_cat==='A1' && (f.spd||0)>600) reasons.push(`Speed anomaly: ${f.spd} knots reported for a light aircraft category`);
+    if(f.raw_cat==='A1' && (f.alt||0)>55000) reasons.push(`Altitude anomaly: ${(f.alt||0).toLocaleString()} ft reported for a light aircraft category`);
+    html += `<div style="font-size:11px;color:#c8ff40;margin-top:6px;padding:8px 10px;background:#101800;border:1px solid #507010;border-radius:6px;line-height:1.6">
+      ⚠ <b>Unidentified / Anomalous</b> — This contact cannot be positively identified or its data contains physical anomalies.<br>
+      ${reasons.length ? '<b>Reasons:</b> '+reasons.join(' · ') : 'Signal does not match any known aircraft or operator.'}
+    </div>`;
+  }
+
+  // Alert explanation
+  if(isAlertflight){
+    const why = [];
+    if(f.sqk==='7500') why.push('Squawk 7500 — Hijack declared');
+    if(f.sqk==='7600') why.push('Squawk 7600 — Radio communications failure');
+    if(f.sqk==='7700') why.push('Squawk 7700 — General emergency');
+    const emerg = f.emergency||'none';
+    if(emerg!=='none'&&emerg!=='reserved'){
+      const emDict={general:'General emergency',lifeguard:'Medical / lifeguard flight',minfuel:'Minimum fuel',nordo:'No radio (NORDO)',unlawful:'Unlawful interference (hijack)',downed:'Downed aircraft'};
+      why.push(emDict[emerg]||'Emergency: '+emerg);
+    }
+    html += `<div style="font-size:11px;color:#ff4040;margin-top:6px;padding:8px 10px;background:#200404;border:1px solid #a01010;border-radius:6px;line-height:1.6">
+      🚨 <b>Active alert</b> — ${why.join(' · ')||'Abnormal status detected'}
+    </div>`;
+  }
+
   document.getElementById('detail-inner').innerHTML = html;
   document.getElementById('detail').classList.add('on');
 }
@@ -788,8 +1072,913 @@ function startAutoRefresh(){
   autoTimer=setInterval(()=>{if(!isFetching)fetchViewport(false);},20000);
 }
 
+
+/* ═══ LOCATE ME ════════════════════════════════════════════════ */
+let locateMarker = null;
+let locateCircle = null;
+
+function locateMe(){
+  const btn = document.getElementById('locbtn');
+  btn.textContent = '⏳';
+  btn.classList.add('active');
+  if(!navigator.geolocation){
+    setStatus('err','Geolocation not supported by this browser');
+    btn.textContent = '📍'; btn.classList.remove('active'); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = pos.coords.accuracy; // metres
+      vlog('ok', `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)} ± ${Math.round(acc)}m`);
+
+      // Remove old markers
+      if(locateMarker){ map.removeLayer(locateMarker); locateMarker=null; }
+      if(locateCircle){ map.removeLayer(locateCircle); locateCircle=null; }
+
+      // Accuracy circle
+      locateCircle = L.circle([lat,lng],{
+        radius: acc, color:'#4fa8e8', fillColor:'#4fa8e8',
+        fillOpacity:0.08, weight:1.5, dashArray:'4,3'
+      }).addTo(map);
+
+      // You-are-here pin
+      const youIcon = L.divIcon({
+        html:`<div style="width:14px;height:14px;border-radius:50%;background:#4fa8e8;border:3px solid #fff;box-shadow:0 0 0 2px #4fa8e8,0 0 12px rgba(79,168,232,.6)"></div>`,
+        className:'', iconSize:[14,14], iconAnchor:[7,7]
+      });
+      locateMarker = L.marker([lat,lng],{icon:youIcon,zIndexOffset:3000})
+        .bindTooltip(`<b>You are here</b><br>${lat.toFixed(5)}, ${lng.toFixed(5)}<br>Accuracy ± ${Math.round(acc)} m`,
+          {direction:'top', permanent:false})
+        .addTo(map);
+
+      // Fly to location at zoom 10
+      map.flyTo([lat,lng], 10, {duration:1.2, easeLinearity:.5});
+      btn.textContent = '📍'; btn.classList.remove('active');
+      setStatus('ok', `Located: ${lat.toFixed(4)}, ${lng.toFixed(4)} ± ${Math.round(acc)}m`);
+    },
+    err => {
+      vlog('error', 'Geolocation error: '+err.message);
+      setStatus('err', 'Location access denied or unavailable');
+      btn.textContent = '📍'; btn.classList.remove('active');
+    },
+    {enableHighAccuracy:true, timeout:10000, maximumAge:30000}
+  );
+}
+
+/* ═══ DOMAIN SWITCHER ════════════════════════════════════════ */
+function setDomain(domain, el){
+  if(activeDomain === domain) return;
+  activeDomain = domain;
+  document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+
+  // Clear current markers
+  Object.values(markers).forEach(m=>map.removeLayer(m)); markers={};
+  Object.values(vesselMarkers).forEach(m=>map.removeLayer(m)); vesselMarkers={};
+  Object.values(landMarkers).forEach(m=>map.removeLayer(m)); landMarkers={};
+  selected=null;
+  document.getElementById('detail').classList.remove('on');
+  document.getElementById('fab').className='';
+
+  document.getElementById('land-bar').style.display='none';
+  if(domain==='air'){
+    vlog('info','Switched to AIR domain');
+    stopSeaStream(); stopLandPoll();
+    fetchViewport(true);
+  } else if(domain==='sea'){
+    vlog('info','Switched to SEA domain');
+    clearInterval(autoTimer); stopLandPoll();
+    startSeaStream();
+  } else if(domain==='land'){
+    vlog('info','Switched to LAND domain (Sweden transit)');
+    document.getElementById('land-bar').style.display='flex';
+    clearInterval(autoTimer); stopSeaStream();
+    startLandPoll();
+  }
+}
+
+/* ═══ SEA / AIS STREAM ════════════════════════════════════════
+   aisstream.io — free WebSocket AIS, global, no proxy needed
+   Free API key required: https://aisstream.io (sign up free)
+   Falls back to demo data if no key / connection fails
+══════════════════════════════════════════════════════════════ */
+const AISSTREAM_KEY = '35edfaad9acb852a84064009604a05bccb912dac'; // aisstream.io
+
+function getBoundingBox(){
+  const b = map.getBounds().pad(0.05);
+  return [[b.getSouth(), b.getWest()],[b.getNorth(), b.getEast()]];
+}
+
+function startSeaStream(){
+  stopSeaStream();
+  if(!AISSTREAM_KEY){
+    vlog('warn','No AISstream key — showing sea demo data. Get a free key at aisstream.io');
+    setStatus('load','Sea demo mode — add AISSTREAM_KEY for live data');
+    document.getElementById('srcbadge').textContent='sea · demo';
+    loadSeaDemo();
+    renderSea();
+    return;
+  }
+  vlog('info','Connecting to aisstream.io WebSocket…');
+  setStatus('load','Connecting to AIS stream…');
+
+  try {
+    aisSocket = new WebSocket('wss://stream.aisstream.io/v0/stream');
+    aisSocket.onopen = () => {
+      vlog('ok','AIS WebSocket connected');
+      const sub = {
+        APIKey: AISSTREAM_KEY,
+        BoundingBoxes: [getBoundingBox()],
+        FilterMessageTypes: ['PositionReport','ShipStaticData'],
+      };
+      aisSocket.send(JSON.stringify(sub));
+      setStatus('ok','AIS stream connected · '+new Date().toLocaleTimeString());
+      document.getElementById('srcbadge').textContent='aisstream.io · live';
+    };
+    aisSocket.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        handleAISMessage(msg);
+      } catch(e){ /* ignore parse errors */ }
+    };
+    aisSocket.onerror = (e) => {
+      vlog('error','AIS WebSocket error');
+      setStatus('err','AIS stream error — check key at aisstream.io');
+    };
+    aisSocket.onclose = () => {
+      vlog('warn','AIS WebSocket closed');
+      if(activeDomain==='sea') setStatus('err','AIS stream disconnected');
+    };
+  } catch(e) {
+    vlog('error','WebSocket failed: '+e.message);
+    loadSeaDemo(); renderSea();
+  }
+}
+
+function stopSeaStream(){
+  if(aisSocket){ aisSocket.close(); aisSocket=null; }
+}
+
+function handleAISMessage(msg){
+  const meta    = msg.MetaData || {};
+  const msgType = msg.MessageType || '';
+  const mmsi    = String(meta.MMSI || msg.Message?.PositionReport?.UserID || '');
+  if(!mmsi) return;
+
+  if(!vesselMap[mmsi]) vesselMap[mmsi]={mmsi};
+
+  if(msgType==='PositionReport'){
+    const p = msg.Message?.PositionReport || {};
+    Object.assign(vesselMap[mmsi],{
+      lat:    meta.latitude  || p.Latitude,
+      lng:    meta.longitude || p.Longitude,
+      sog:    p.Sog || 0,          // speed over ground (knots)
+      cog:    p.Cog || 0,          // course over ground
+      hdg:    p.TrueHeading < 511 ? p.TrueHeading : (p.Cog||0),
+      navstat:p.NavigationalStatus,
+      name:   meta.ShipName || vesselMap[mmsi].name || '—',
+    });
+    if(vesselMap[mmsi].lat && activeDomain==='sea') renderVessel(mmsi);
+  }
+  if(msgType==='ShipStaticData'){
+    const s = msg.Message?.ShipStaticData || {};
+    Object.assign(vesselMap[mmsi],{
+      name:     s.Name?.trim() || vesselMap[mmsi].name || '—',
+      callsign: s.CallSign?.trim() || '—',
+      typeCode: s.Type || 0,
+      dest:     s.Destination?.trim() || '—',
+      draught:  s.MaximumStaticDraught || 0,
+      imo:      s.ImoNumber || 0,
+    });
+  }
+}
+
+function renderVessel(mmsi){
+  const v = vesselMap[mmsi];
+  if(!v || v.lat==null) return;
+  const tinfo  = classifyVessel(v.typeCode||0);
+  const color  = VESSEL_CAT_COLOR[tinfo.cat] || '#6b6e8a';
+  const isSel  = selected === mmsi;
+  const sz     = isSel ? 26 : 18;
+  const op     = isSel ? 1  : 0.9;
+
+  if(vesselMarkers[mmsi]){
+    vesselMarkers[mmsi].setLatLng([v.lat,v.lng]);
+    vesselMarkers[mmsi].setIcon(vesselIcon(v.hdg||v.cog||0, isSel?'#fff':color, sz, op));
+  } else {
+    const m = L.marker([v.lat,v.lng],{
+      icon:vesselIcon(v.hdg||v.cog||0, color, sz, op),
+      zIndexOffset: isSel?2000:0
+    });
+    m.bindTooltip(
+      `<b>${v.name||mmsi}</b><br>${tinfo.icon} ${tinfo.label}<br>`+
+      `${v.sog||0} kn · ${NAVSTAT_LABEL[v.navstat]||'—'}`,
+      {direction:'top', offset:[0,-8]}
+    );
+    m.on('click',()=>selectVessel(mmsi));
+    m.addTo(map);
+    vesselMarkers[mmsi] = m;
+  }
+}
+
+function renderSea(){
+  Object.keys(vesselMap).forEach(mmsi=>renderVessel(mmsi));
+  const total = Object.keys(vesselMap).length;
+  document.getElementById('pill').textContent = total.toLocaleString()+' vessels';
+}
+
+/* ── Sea Demo Data ──────────────────────────────────────────── */
+function loadSeaDemo(){
+  const demo = [
+    {mmsi:'219025158',name:'MAERSK DENALI',  typeCode:70,lat:56.2,lng:10.5,sog:12,cog:180,hdg:180,navstat:0,callsign:'OXVC2',dest:'NLRTM'},
+    {mmsi:'304010917',name:'EVER GIVEN',     typeCode:71,lat:51.9,lng:4.2, sog:8, cog:270,hdg:270,navstat:0,callsign:'VRPL8',dest:'DEHAM'},
+    {mmsi:'636091415',name:'NORDIC FIGHTER', typeCode:80,lat:57.7,lng:11.8,sog:0, cog:0,  hdg:0,  navstat:5,callsign:'A8EI5',dest:'SESOE'},
+    {mmsi:'244730788',name:'OCEAN FREEDOM',  typeCode:30,lat:54.1,lng:8.7, sog:5, cog:120,hdg:120,navstat:7,callsign:'PH7765',dest:''},
+    {mmsi:'219463000',name:'CROWN SEAWAYS',  typeCode:60,lat:57.0,lng:10.6,sog:16,cog:10, hdg:10, navstat:0,callsign:'OUHI2',dest:'DKFRE'},
+    {mmsi:'227336560',name:'MV ATLANTIQUE',  typeCode:69,lat:47.2,lng:-2.2,sog:18,cog:270,hdg:270,navstat:0,callsign:'FNVY',dest:'GBSOU'},
+    {mmsi:'538009381',name:'NAVIOS AZIMUTH', typeCode:70,lat:36.1,lng:5.5, sog:14,cog:90, hdg:90, navstat:0,callsign:'V7WM4',dest:'CNMOH'},
+    {mmsi:'352002493',name:'NORDIC BREEZE',  typeCode:52,lat:55.6,lng:12.6,sog:3, cog:45, hdg:45, navstat:0,callsign:'H9EF',dest:'DKCOPN'},
+    {mmsi:'265797690',name:'SAR RESCUE 001', typeCode:51,lat:57.4,lng:11.2,sog:22,cog:310,hdg:310,navstat:3,callsign:'SMAB',dest:'INCIDENT'},
+  ];
+  demo.forEach(v=>{vesselMap[v.mmsi]=v;});
+}
+
+/* ── Select a vessel ────────────────────────────────────────── */
+function selectVessel(mmsi){
+  if(selected===mmsi){deselectVessel();return;}
+  selected=mmsi;
+  Object.keys(vesselMarkers).forEach(m=>{
+    const v=vesselMap[m];
+    const tinfo=classifyVessel(v.typeCode||0);
+    const color=VESSEL_CAT_COLOR[tinfo.cat]||'#6b6e8a';
+    const isSel=(m===mmsi);
+    vesselMarkers[m].setIcon(vesselIcon(v.hdg||v.cog||0,isSel?'#fff':color,isSel?26:18,isSel?1:.5));
+    vesselMarkers[m].options.zIndexOffset=isSel?2000:-100;
+  });
+  document.getElementById('fab').className='on';
+  const v=vesselMap[mmsi]; if(!v)return;
+  map.flyTo([v.lat,v.lng],8,{duration:1.0,easeLinearity:.5});
+  renderVesselDetail(v);
+}
+
+function deselectVessel(){
+  selected=null;
+  document.getElementById('detail').classList.remove('on');
+  document.getElementById('fab').className='';
+  Object.keys(vesselMarkers).forEach(m=>{
+    const v=vesselMap[m];
+    const tinfo=classifyVessel(v.typeCode||0);
+    const color=VESSEL_CAT_COLOR[tinfo.cat]||'#6b6e8a';
+    vesselMarkers[m].setIcon(vesselIcon(v.hdg||v.cog||0,color,18,0.9));
+    vesselMarkers[m].options.zIndexOffset=0;
+  });
+}
+
+/* ── Vessel detail panel ────────────────────────────────────── */
+function renderVesselDetail(v){
+  const tinfo  = classifyVessel(v.typeCode||0);
+  const navlbl = NAVSTAT_LABEL[v.navstat] ?? `Status ${v.navstat}`;
+  const color  = VESSEL_CAT_COLOR[tinfo.cat]||'#6b6e8a';
+  const isDistress = v.navstat===14;
+  const isAground  = v.navstat===6;
+
+  let html='';
+
+  // Status
+  if(isDistress)
+    html+=`<div style="background:#200404;border:1px solid #a01010;border-radius:8px;padding:4px 10px;font-size:11px;color:#ff4040;font-weight:600;margin-bottom:8px;animation:pulse .8s infinite">🚨 SART / MOB / EPIRB ACTIVE — Distress signal</div>`;
+  else if(isAground)
+    html+=`<div style="background:#201000;border:1px solid #a04010;border-radius:8px;padding:4px 10px;font-size:11px;color:#e8a040;font-weight:600;margin-bottom:8px">⚠ VESSEL AGROUND</div>`;
+
+  // Header
+  html+=`<div class="d-header">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="d-callsign">${v.name||v.mmsi}</span>
+        <span style="background:${color}22;border:1px solid ${color}66;border-radius:8px;padding:3px 10px;font-size:11px;color:${color}">${tinfo.icon} ${tinfo.label}</span>
+      </div>
+      <div class="d-subtitle">MMSI ${v.mmsi}${v.callsign&&v.callsign!=='—'?' · '+v.callsign:''}</div>
+    </div>
+    <button class="d-close" onclick="deselectVessel()">✕</button>
+  </div>`;
+
+  // Voyage info
+  if(v.dest&&v.dest!=='—'&&v.dest!=='')
+    html+=`<div style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:7px;padding:6px 10px;font-size:12px;color:#7dd460;margin-bottom:8px">
+      ⚓ Destination: <b>${v.dest}</b>
+    </div>`;
+
+  // Stats grid
+  html+=`<div class="d-stats">
+    <div class="d-stat"><div class="d-stat-label">Speed over ground</div><div class="d-stat-value">${v.sog||0} <span class="d-stat-unit">knots</span></div></div>
+    <div class="d-stat"><div class="d-stat-label">Course</div><div class="d-stat-value">${Math.round(v.cog||0)}°</div></div>
+    <div class="d-stat"><div class="d-stat-label">Heading</div><div class="d-stat-value">${v.hdg?Math.round(v.hdg)+'°':'—'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Navigation status</div><div class="d-stat-value" style="font-size:11px">${navlbl}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Draught</div><div class="d-stat-value">${v.draught?v.draught+' m':'—'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">IMO number</div><div class="d-stat-value mono">${v.imo||'—'}</div></div>
+  </div>`;
+
+  html+=`<div style="font-size:10px;color:#3a3d52;margin-top:6px">Live AIS via aisstream.io · Cargo manifest not public · Historical data not available in free tier</div>`;
+
+  document.getElementById('detail-inner').innerHTML=html;
+  document.getElementById('detail').classList.add('on');
+}
+
+/* ═══ LAND / TRAFIKLAB (SWEDEN TRANSIT) ══════════════════════
+   Sources (all keys from Thorsten's Trafiklab project 53494):
+   ─ GTFS Regional Realtime   vehiclepositions.pb  → key 0a05a879...
+   ─ GTFS Sweden 3 Realtime   vehiclepositions.pb  → key 70041a63...
+   ─ Trafiklab Realtime APIs  JSON departures       → key 818926b0...
+   ─ ResRobot v2.1            stop search           → key 7f860985...
+   
+   Vehicle positions are protobuf (.pb) — decoded with protobufjs CDN.
+   Covers all 21 Swedish regions. Updated every 2–3 seconds.
+   License: CC0 1.0 (GTFS Sweden 3) / CC-BY (Trafiklab Realtime APIs)
+══════════════════════════════════════════════════════════════ */
+
+// ── TRAFIKLAB API KEYS ────────────────────────────────────────
+const TL_KEYS = {
+  gtfsRegionalRealtime: '0a05a879cdd44d72aa33fbb4f3b9b17a',
+  gtfsSweden3Realtime:  '70041a63c6f84cab85e0ed8f582451e7',
+  trafiklabRealtime:    '818926b0db45425db79b461835891b60',
+  resrobot:             '7f860985-ee23-413a-a3c5-750f8dabf984',
+  koda:                 '6AN0yTrzB0zoHXfty44M_U6RsHK_5XMFHaBizFm3WaA',
+  oxyfi:                '444d51aa0936744df8d1008ba42e62b1',
+  siri:                 'b7c70cfc2fa444ab8858b261c1b12694',
+};
+
+// ── OPERATORS covered by GTFS Regional ───────────────────────
+// Each has its own feed. We fetch all and merge.
+const TL_OPERATORS = [
+  'sl','ul','otraf','xtrafik','wpt','skane','halland','vt','dt',
+  'klt','krono','blekinge','jonkoping','kalmar','gotland',
+  'sormland','vastmanland','dalarna','gavleborg','vasternorrland',
+  'jamtland','vasterbotten','norrbotten',
+];
+
+// ── GTFS route_type → display ─────────────────────────────────
+const LAND_VEHICLE_TYPE = {
+  0: {icon:'🚋', label:'Tram / Spårvagn',     color:'#e8a040'},
+  1: {icon:'🚇', label:'Metro / Tunnelbana',  color:'#e060e8'},
+  2: {icon:'🚆', label:'Train / Tåg',         color:'#4fa8e8'},
+  3: {icon:'🚌', label:'Bus / Buss',          color:'#7dd460'},
+  4: {icon:'⛴',  label:'Ferry / Färja',       color:'#48c8e8'},
+  5: {icon:'🚠', label:'Cable car',           color:'#e8d040'},
+  6: {icon:'🚡', label:'Gondola',             color:'#c8a060'},
+  7: {icon:'🚞', label:'Funicular',           color:'#a0d0ff'},
+  11:{icon:'🚎', label:'Trolleybus',          color:'#a090f0'},
+  12:{icon:'🚝', label:'Monorail',            color:'#00e8c8'},
+  100:{icon:'🚆',label:'Railway Service',     color:'#4fa8e8'},
+  200:{icon:'🚌',label:'Coach Service',       color:'#7dd460'},
+  400:{icon:'🚇',label:'Urban Railway',       color:'#e060e8'},
+  700:{icon:'🚌',label:'Bus Service',         color:'#7dd460'},
+  900:{icon:'🚋',label:'Tram Service',        color:'#e8a040'},
+};
+function landTypeInfo(rt){
+  const t = parseInt(rt)||3;
+  // Handle extended codes: 100s=train, 200s=coach, 400s=metro, 700s=bus, 900s=tram
+  if(t>=100&&t<200) return LAND_VEHICLE_TYPE[100]||LAND_VEHICLE_TYPE[2];
+  if(t>=200&&t<300) return LAND_VEHICLE_TYPE[200]||LAND_VEHICLE_TYPE[3];
+  if(t>=400&&t<500) return LAND_VEHICLE_TYPE[400]||LAND_VEHICLE_TYPE[1];
+  if(t>=700&&t<800) return LAND_VEHICLE_TYPE[700]||LAND_VEHICLE_TYPE[3];
+  if(t>=900&&t<1000)return LAND_VEHICLE_TYPE[900]||LAND_VEHICLE_TYPE[0];
+  return LAND_VEHICLE_TYPE[t] || LAND_VEHICLE_TYPE[3];
+}
+
+function landVehicleIcon(bearing, color, sz, op){
+  const s = sz||16;
+  return L.divIcon({
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24"
+      style="transform:rotate(${bearing||0}deg);opacity:${op||1};display:block;overflow:visible">
+      <g fill="${color}" stroke="#0a0c14" stroke-width="1.2" stroke-linejoin="round">
+        <polygon points="12,2 20,20 12,15 4,20"/>
+      </g></svg>`,
+    className:'', iconSize:[s,s], iconAnchor:[s/2,s/2]
+  });
+}
+
+// ── PROTOBUF DECODER ──────────────────────────────────────────
+// We use protobufjs (loaded from CDN) to decode GTFS-RT .pb files
+let pbRoot = null;
+let pbLoaded = false;
+
+async function loadProtobufSchema(){
+  if(pbLoaded) return true;
+  try{
+    // Use the GTFS-RT proto definition embedded as a JS object
+    // This avoids needing to load a separate .proto file
+    const GTFS_RT_PROTO = `
+syntax = "proto2";
+message FeedMessage {
+  required FeedHeader header = 1;
+  repeated FeedEntity entity = 2;
+}
+message FeedHeader {
+  required string gtfs_realtime_version = 1;
+  optional uint64 timestamp = 2;
+}
+message FeedEntity {
+  required string id = 1;
+  optional VehiclePosition vehicle = 4;
+}
+message VehiclePosition {
+  optional TripDescriptor trip = 1;
+  optional VehicleDescriptor vehicle = 8;
+  optional Position position = 2;
+  optional uint64 timestamp = 5;
+  optional int32 current_stop_sequence = 3;
+  optional string stop_id = 7;
+}
+message TripDescriptor {
+  optional string trip_id = 1;
+  optional string route_id = 5;
+  optional string start_time = 2;
+  optional string start_date = 3;
+}
+message VehicleDescriptor {
+  optional string id = 1;
+  optional string label = 2;
+  optional string license_plate = 3;
+}
+message Position {
+  required float latitude = 1;
+  required float longitude = 2;
+  optional float bearing = 3;
+  optional double odometer = 4;
+  optional float speed = 5;
+}
+`;
+    // protobufjs is loaded from CDN in the HTML
+    if(typeof protobuf === 'undefined'){
+      vlog('warn','protobufjs not loaded yet — waiting…');
+      await new Promise(r=>setTimeout(r,1000));
+      if(typeof protobuf === 'undefined') throw new Error('protobufjs CDN failed to load');
+    }
+    pbRoot = protobuf.parse(GTFS_RT_PROTO).root;
+    pbLoaded = true;
+    vlog('ok','GTFS-RT protobuf schema loaded');
+    return true;
+  }catch(e){
+    vlog('error','Protobuf schema load failed: '+e.message);
+    return false;
+  }
+}
+
+// ── FETCH + DECODE a single operator's vehiclepositions.pb ────
+async function fetchOperatorPositions(operator){
+  // Try GTFS Sweden 3 first (national feed) then Regional
+  const urls = [
+    // GTFS Sweden 3 Realtime (all operators in one feed — only needs 1 fetch)
+    // Format: https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key={key}
+    cfg.primaryUrl || cfg.url,
+  ];
+  // Try via proxy (CORS)
+  for(const directUrl of urls){
+    for(let pi=0; pi<PROXIES.length; pi++){
+      const url = PROXIES[pi](directUrl);
+      try{
+        const ctrl = new AbortController();
+        const tid  = setTimeout(()=>ctrl.abort(), 12000);
+        const res  = await fetch(url, {signal:ctrl.signal});
+        clearTimeout(tid);
+        if(!res.ok){ vlog('warn',`GTFS-RT HTTP ${res.status} via proxy${pi+1}`); continue; }
+        const buf  = await res.arrayBuffer();
+        vlog('ok',`GTFS-RT Sweden3 fetched: ${buf.byteLength} bytes via proxy${pi+1}`);
+        return decodePb(buf);
+      }catch(e){
+        vlog('warn',`GTFS-RT proxy${pi+1}: ${e.name==='AbortError'?'timeout':e.message}`);
+      }
+    }
+  }
+  return [];
+}
+
+// ── DECODE protobuf bytes → array of vehicle objects ──────────
+function decodePb(buffer){
+  try{
+    const FeedMessage = pbRoot.lookupType('FeedMessage');
+    const msg = FeedMessage.decode(new Uint8Array(buffer));
+    const vehicles = [];
+    const bounds = map.getBounds().pad(0.1);
+    (msg.entity||[]).forEach(e=>{
+      const vp = e.vehicle; if(!vp||!vp.position) return;
+      const lat = vp.position.latitude, lng = vp.position.longitude;
+      if(!lat||!lng) return;
+      // Filter to viewport for performance
+      if(!bounds.contains([lat,lng])) return;
+      const id = vp.vehicle?.id || vp.vehicle?.label || e.id || '';
+      vehicles.push({
+        id,
+        label:    vp.vehicle?.label || id,
+        lat, lng,
+        bearing:  vp.position.bearing || 0,
+        speed:    vp.position.speed ? Math.round(vp.position.speed*3.6) : 0, // m/s → km/h
+        routeId:  vp.trip?.route_id || '—',
+        tripId:   vp.trip?.trip_id  || '—',
+        routeType:3, // will be enriched from static data later
+        line:     vp.trip?.route_id || '—',
+        dest:     '—',
+        operator: '—',
+      });
+    });
+    return vehicles;
+  }catch(e){
+    vlog('error','Protobuf decode error: '+e.message);
+    return [];
+  }
+}
+
+// ── MAIN LAND FETCH ───────────────────────────────────────────
+async function fetchLandVehicles(){
+  if(activeDomain!=='land') return;
+
+  const cfg = LAND_COUNTRY_CONFIG[landCountry];
+  if(!cfg){ setStatus('err','Unknown country: '+landCountry); return; }
+  if(cfg.status !== 'active'){
+    setStatus('load', cfg.flag+' '+cfg.name+' — planned. Showing demo.');
+    if(Object.keys(landMap).length===0){ loadLandDemoForCountry(landCountry); renderLand(); }
+    return;
+  }
+  const ok = await loadProtobufSchema();
+  if(!ok){
+    vlog('warn','Falling back to land demo (protobuf unavailable)');
+    if(Object.keys(landMap).length===0){ loadLandDemo(); renderLand(); }
+    setStatus('err','Protobuf decoder unavailable — showing demo');
+    document.getElementById('srcbadge').textContent='trafiklab · demo';
+    return;
+  }
+
+  setStatus('load','Fetching Sweden vehicle positions…');
+  vlog('info','Fetching GTFS-RT Sweden3 vehiclepositions.pb…');
+
+  const vehicles = await fetchOperatorPositions('sweden');
+
+  // IE returns JSON not protobuf
+  if(cfg.api==='gtfs_rt_json' && vehicles.length===0){
+    try{
+      const jsonUrl = cfg.primaryUrl || cfg.url;
+      const ctrl2=new AbortController(); const tid2=setTimeout(()=>ctrl2.abort(),8000);
+      for(let pi=0;pi<PROXIES.length;pi++){
+        const res=await fetch(PROXIES[pi](jsonUrl),{signal:ctrl2.signal}).catch(()=>null);
+        if(res&&res.ok){
+          clearTimeout(tid2);
+          const j=await res.json();
+          (j.entity||[]).forEach(e=>{
+            const vp=e.vehicle||e; const pos=vp.position||{};
+            if(!pos.latitude) return;
+            const id=(vp.vehicle?.id||e.id||'').toString();
+            vehicles.push({id,label:vp.vehicle?.label||id,lat:pos.latitude,lng:pos.longitude,
+              bearing:pos.bearing||0,speed:pos.speed?Math.round(pos.speed*3.6):0,
+              routeType:3,line:vp.trip?.route_id||'—',dest:'—',operator:cfg.name,routeId:vp.trip?.route_id||'—',tripId:vp.trip?.trip_id||'—'});
+          });
+          vlog('ok',`JSON vehicles: ${vehicles.length}`); break;
+        }
+      }
+    }catch(e){ vlog('warn','JSON fetch failed: '+e.message); }
+  }
+
+  if(vehicles.length > 0){
+    // Merge into landMap
+    vehicles.forEach(v=>{ if(v.id) landMap[v.id]=v; });
+    // Prune out-of-view
+    const bounds = map.getBounds().pad(0.2);
+    Object.keys(landMap).forEach(id=>{
+      const v=landMap[id];
+      if(!bounds.contains([v.lat,v.lng])) delete landMap[id];
+    });
+    const count = Object.keys(landMap).length;
+    document.getElementById('pill').textContent = count.toLocaleString()+' vehicles';
+    document.getElementById('srcbadge').textContent = `trafiklab · ${count} vehicles`;
+    setStatus('ok',`${count} vehicles in view · ${new Date().toLocaleTimeString()}`);
+    renderLand();
+  } else {
+    vlog('warn','No vehicle positions received — using demo data');
+    if(Object.keys(landMap).length===0){ loadLandDemo(); renderLand(); }
+    setStatus('err','Live positions unavailable — showing demo (CORS/protobuf issue)');
+    document.getElementById('srcbadge').textContent='trafiklab · demo';
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderLand(){
+  Object.keys(landMarkers).forEach(id=>{
+    if(!landMap[id]){ map.removeLayer(landMarkers[id]); delete landMarkers[id]; }
+  });
+  Object.keys(landMap).forEach(id=>{
+    const v=landMap[id];
+    const ti=landTypeInfo(v.routeType||3);
+    const isSel=selected===id;
+    const color=isSel?'#fff':ti.color;
+    const sz=isSel?22:15, op=isSel?1:(!!selected?0.25:0.9);
+    if(landMarkers[id]){
+      landMarkers[id].setLatLng([v.lat,v.lng]);
+      landMarkers[id].setIcon(landVehicleIcon(v.bearing,color,sz,op));
+    } else {
+      const m=L.marker([v.lat,v.lng],{icon:landVehicleIcon(v.bearing,color,sz,op),zIndexOffset:isSel?2000:0});
+      m.bindTooltip(
+        `<b>${ti.icon} ${v.line!=='—'?v.line+' ':''}</b>${v.dest!=='—'?' → '+v.dest:''}<br>`+
+        `${v.speed?v.speed+' km/h':'Stopped'} · ${ti.label}`,
+        {direction:'top',offset:[0,-8]}
+      );
+      m.on('click',()=>selectLandVehicle(id));
+      m.addTo(map); landMarkers[id]=m;
+    }
+  });
+}
+
+// ── SELECT ────────────────────────────────────────────────────
+function selectLandVehicle(id){
+  if(selected===id){deselectLand();return;}
+  selected=id; renderLand();
+  const v=landMap[id]; if(!v)return;
+  map.flyTo([v.lat,v.lng],13,{duration:0.9,easeLinearity:.5});
+  renderLandDetail(v);
+}
+function deselectLand(){
+  selected=null;
+  document.getElementById('detail').classList.remove('on');
+  document.getElementById('fab').className='';
+  renderLand();
+}
+
+// ── DETAIL PANEL ──────────────────────────────────────────────
+function renderLandDetail(v){
+  const ti=landTypeInfo(v.routeType||3);
+  let html='';
+  html+=`<div class="d-header">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="d-callsign">${ti.icon} ${v.line!=='—'?v.line:v.id}</span>
+        <span style="background:${ti.color}22;border:1px solid ${ti.color}66;border-radius:8px;padding:3px 10px;font-size:11px;color:${ti.color}">${ti.label}</span>
+      </div>
+      <div class="d-subtitle">${v.dest!=='—'?'Towards: '+v.dest:''}</div>
+    </div>
+    <button class="d-close" onclick="deselectLand()">✕</button>
+  </div>`;
+  html+=`<div class="d-stats">
+    <div class="d-stat"><div class="d-stat-label">Vehicle identifier</div><div class="d-stat-value mono" style="font-size:11px">${v.label||v.id}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Speed</div><div class="d-stat-value">${v.speed?v.speed+' km/h':'Stopped'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Bearing</div><div class="d-stat-value">${Math.round(v.bearing||0)}°</div></div>
+    <div class="d-stat"><div class="d-stat-label">Route</div><div class="d-stat-value">${v.line}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Destination</div><div class="d-stat-value" style="font-size:11px">${v.dest}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Trip identifier</div><div class="d-stat-value mono" style="font-size:10px">${v.tripId!=='—'?v.tripId:'—'}</div></div>
+  </div>`;
+  html+=`<div style="font-size:10px;color:#3a3d52;margin-top:6px">Live GPS via Trafiklab GTFS Sweden 3 (CC0) · Updated every 2–3 seconds · All 21 Swedish regions</div>`;
+  document.getElementById('detail-inner').innerHTML=html;
+  document.getElementById('detail').classList.add('on');
+}
+
+// ── POLL CONTROL ──────────────────────────────────────────────
+/* ── COUNTRY CONFIG for land layer ──────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   LAND COUNTRY CONFIG — all sources, keys, and API details
+   Status: 'active' = live GTFS-RT   |   'planned' = key needed
+════════════════════════════════════════════════════════════ */
+const LAND_COUNTRY_CONFIG = {
+
+  SE:{
+    name:'Sweden', flag:'🇸🇪', status:'active',
+    center:[62.0,16.0], zoom:6,
+    // Bounding box [south,west,north,east] for auto-detect
+    bbox:[55.0,10.5,69.5,24.2],
+    api:'gtfs_rt_protobuf',
+    // GTFS Sweden 3 — all 21 regions, no key needed for protobuf endpoint
+    // Key: 70041a63c6f84cab85e0ed8f582451e7 (Trafiklab project 53494)
+    url:'https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key=70041a63c6f84cab85e0ed8f582451e7',
+    fallbackUrl:'https://openapi.samtrafiken.se/gtfs-rt/{op}/vehiclepositions.pb?key=0a05a879cdd44d72aa33fbb4f3b9b17a',
+    operators:['sl','ul','otraf','xtrafik','wpt','skane','halland','vt','dt','klt','krono','blekinge'],
+    license:'CC0 1.0', update_s:2,
+    notes:'All 21 Swedish regions · Updated every 2s · CC0 license',
+  },
+
+  NO:{
+    name:'Norway', flag:'🇳🇴', status:'active',
+    center:[64.5,14.0], zoom:5,
+    bbox:[57.9,4.5,71.2,31.1],
+    api:'gtfs_rt_protobuf',
+    // Entur — free, open, no key. Must send ET-Client-Name header.
+    // Header injected via proxy since browser can't set custom headers cross-origin
+    url:'https://api.entur.io/realtime/v1/gtfs-rt/vehicle-positions',
+    proxyHeaders:{'ET-Client-Name':'ThorstenGru-VectorWatch'},
+    license:'NLOD 2.0', update_s:15,
+    notes:'Entur — all Norwegian operators · No key required · NLOD 2.0 license',
+  },
+
+  FI:{
+    name:'Finland', flag:'🇫🇮', status:'active',
+    center:[64.0,26.0], zoom:5,
+    bbox:[59.7,19.0,70.1,31.6],
+    api:'gtfs_rt_protobuf',
+    // Digitransit / HSL — free, no key for basic positions
+    // Helsinki region (HSL) — most comprehensive
+    url:'https://realtime.hsl.fi/realtime/vehicle-positions/v2/hsl',
+    license:'EUPL 1.2', update_s:5,
+    notes:'HSL Helsinki region · No key required · Full Finland via api.digitransit.fi',
+  },
+
+  DK:{
+    name:'Denmark', flag:'🇩🇰', status:'active',
+    center:[56.0,10.0], zoom:7,
+    bbox:[54.5,8.0,57.8,15.3],
+    api:'gtfs_rt_protobuf',
+    // Rejseplanen open GTFS-RT (no key for public protobuf endpoint)
+    url:'https://raw.githubusercontent.com/nicholasgable/gtfs-dk/main/vehiclepositions.pb',
+    // Primary: Midttrafik public GTFS-RT (no auth)
+    primaryUrl:'https://feeds.rejseplanen.dk/feeds/gtfs-rt/vehiclePositions',
+    license:'varies', update_s:30,
+    notes:'Rejseplanen · Denmark · GTFS-RT vehicle positions',
+  },
+
+  DE:{
+    name:'Germany', flag:'🇩🇪', status:'active',
+    center:[51.0,10.0], zoom:6,
+    bbox:[47.3,5.9,55.1,15.0],
+    api:'gtfs_rt_protobuf',
+    // VBB (Berlin/Brandenburg) — free, no key, open CORS
+    // Full Germany: Mobilithek (requires registration)
+    url:'https://www.vbb.de/fileadmin/user_upload/VBB/Dokumente/API-Datendienste/gtfs-rt/Vehicles.pb',
+    altUrl:'https://download.gtfs.de/germany/free/gtfs_rt.zip',
+    license:'CC-BY 4.0', update_s:30,
+    notes:'VBB Berlin/Brandenburg · Free · Full Germany via Mobilithek.info',
+  },
+
+  NL:{
+    name:'Netherlands', flag:'🇳🇱', status:'active',
+    center:[52.3,5.2], zoom:7,
+    bbox:[50.7,3.3,53.6,7.2],
+    api:'gtfs_rt_protobuf',
+    // OV-API Netherlands — public, no key, full national coverage
+    url:'https://gtfs.ovapi.nl/nl/vehiclePositions.pb',
+    license:'open', update_s:10,
+    notes:'OV-API · All Netherlands operators · No key required',
+  },
+
+  FR:{
+    name:'France', flag:'🇫🇷', status:'active',
+    center:[46.5,2.5], zoom:6,
+    bbox:[41.3,-5.2,51.1,9.6],
+    api:'gtfs_rt_protobuf',
+    // IDFM (Île-de-France Mobilités) — free, open GTFS-RT
+    url:'https://prim.iledefrance-mobilites.fr/marketplace/gtfs-rt/vehicle-positions.pb',
+    license:'ODBL', update_s:15,
+    notes:'Île-de-France Mobilités (Paris region) · Free · No key required',
+  },
+
+  CH:{
+    name:'Switzerland', flag:'🇨🇭', status:'active',
+    center:[46.8,8.2], zoom:8,
+    bbox:[45.8,5.9,47.8,10.5],
+    api:'gtfs_rt_protobuf',
+    // Open Transport Data Switzerland — free account, or use public feed
+    // Public GTFS-RT feed (no key for community feed)
+    url:'https://opentransportdata.swiss/en/cookbook/gtfs-rt/',
+    // Actual free endpoint (community, no key):
+    primaryUrl:'https://api.opentransportdata.swiss/gtfs-rt2020',
+    license:'varies', update_s:10,
+    notes:'Open Transport Data Switzerland · Community feed · Token at opentransportdata.swiss',
+  },
+
+  AT:{
+    name:'Austria', flag:'🇦🇹', status:'active',
+    center:[47.5,14.0], zoom:7,
+    bbox:[46.4,9.5,49.0,17.2],
+    api:'gtfs_rt_protobuf',
+    // Wiener Linien (Vienna) — free, public GTFS-RT
+    url:'https://www.wienerlinien.at/ogd_realtime/doku/ogd/wienerlinien-ogd-realtime.zip',
+    primaryUrl:'https://realtime.oebb.at/GTFS-RT/vehiclePositions',
+    license:'CC-BY 4.0', update_s:30,
+    notes:'ÖBB + Wiener Linien · Austria · Free GTFS-RT',
+  },
+
+  BE:{
+    name:'Belgium', flag:'🇧🇪', status:'active',
+    center:[50.5,4.5], zoom:8,
+    bbox:[49.5,2.5,51.5,6.4],
+    api:'gtfs_rt_protobuf',
+    // SNCB/NMBS Belgium — free open data
+    url:'https://sncb-opendata.hafas.de/gtfs/static/c21ac6758dd25af84cca5b707f3cb3de',
+    primaryUrl:'https://gtfs.irail.be/nmbs/realtime/VehiclePosition.pb',
+    license:'CC-BY 4.0', update_s:30,
+    notes:'iRail NMBS/SNCB Belgium · Free · No key required',
+  },
+
+  IE:{
+    name:'Ireland', flag:'🇮🇪', status:'active',
+    center:[53.2,-8.0], zoom:7,
+    bbox:[51.4,-10.5,55.4,-6.0],
+    api:'gtfs_rt_json',
+    // Transport for Ireland — free, no key for public GTFS-RT
+    url:'https://api.nationaltransport.ie/gtfsr/v2/Vehicles?format=json',
+    license:'CC-BY 4.0', update_s:10,
+    notes:'Transport for Ireland · No key required for public feed',
+  },
+
+};
+
+/* ════════════════════════════════════════════════════════════
+   COUNTRY BBOX LOOKUP — given lat/lng, return country code
+   Called on every map moveend/zoomend when land tab is active
+════════════════════════════════════════════════════════════ */
+function detectCountryFromCenter(lat, lng){
+  for(const [code, cfg] of Object.entries(LAND_COUNTRY_CONFIG)){
+    const [s,w,n,e] = cfg.bbox;
+    if(lat>=s && lat<=n && lng>=w && lng<=e) return code;
+  }
+  return null; // outside all defined countries
+}
+
+/* ════════════════════════════════════════════════════════════
+   setLandCountry — switch to a country (from button OR auto)
+════════════════════════════════════════════════════════════ */
+function setLandCountry(code, el, skipFly){
+  if(!LAND_COUNTRY_CONFIG[code]) return;
+  const changed = (code !== landCountry);
+  landCountry = code;
+
+  // Update button highlight
+  document.querySelectorAll('.lc').forEach(b=>b.classList.remove('on'));
+  const btn = el || document.getElementById('lc-'+code.toLowerCase());
+  if(btn) btn.classList.add('on');
+
+  if(!changed) return; // same country, no need to reload
+
+  // Clear existing land markers
+  Object.values(landMarkers).forEach(m=>map.removeLayer(m));
+  landMarkers={}; landMap={};
+
+  const cfg = LAND_COUNTRY_CONFIG[code];
+  if(!skipFly) map.flyTo(cfg.center, cfg.zoom, {duration:1.0, easeLinearity:.5});
+
+  fetchLandVehicles();
+}
+
+/* ════════════════════════════════════════════════════════════
+   AUTO-DETECT from map viewport center
+   Triggered on moveend/zoomend when land domain is active.
+   Only switches if center is inside a different country bbox.
+════════════════════════════════════════════════════════════ */
+function autoDetectCountry(){
+  if(activeDomain !== 'land') return;
+  const c = map.getCenter();
+  const detected = detectCountryFromCenter(c.lat, c.lng);
+  if(detected && detected !== landCountry){
+    vlog('info', `Auto-detected country: ${detected} (was ${landCountry})`);
+    setLandCountry(detected, null, true); // skipFly=true, user is already there
+  } else if(!detected){
+    // Outside all countries — show message but keep current data
+    setStatus('load', '🌍 Pan to a supported European country for live transit data');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   POLL CONTROL
+════════════════════════════════════════════════════════════ */
+function startLandPoll(){
+  stopLandPoll();
+  // Initial fetch + auto-detect
+  autoDetectCountry();
+  if(Object.keys(landMap).length === 0) fetchLandVehicles();
+  // Re-fetch on map move (debounced via the existing moveTimer pattern)
+  map.on('moveend.land zoomend.land', ()=>{
+    autoDetectCountry();
+    clearTimeout(window._landMoveTimer);
+    window._landMoveTimer = setTimeout(fetchLandVehicles, 600);
+  });
+  landTimer = setInterval(()=>{
+    if(activeDomain==='land') fetchLandVehicles();
+  }, 12000); // 12s interval
+  vlog('info','Land poll started — auto-detect active');
+}
+
+function stopLandPoll(){
+  if(landTimer){ clearInterval(landTimer); landTimer=null; }
+  clearTimeout(window._landMoveTimer);
+  map.off('moveend.land'); map.off('zoomend.land');
+  Object.values(landMarkers).forEach(m=>map.removeLayer(m));
+  landMarkers={}; landMap={};
+}
+
+// ── DEMO DATA ─────────────────────────────────────────────────
+function loadLandDemo(){
+  [
+    {id:'SL-T13-001',label:'T13',lat:59.332,lng:18.063,bearing:45, speed:40,routeType:1,line:'13',    dest:'Ropsten',     operator:'SL',         routeId:'13', tripId:'sl-t1'},
+    {id:'SL-B55-002',label:'55', lat:59.340,lng:18.055,bearing:270,speed:25,routeType:3,line:'55',    dest:'Hornstull',   operator:'SL',         routeId:'55', tripId:'sl-t2'},
+    {id:'SL-J-003',  label:'J',  lat:59.328,lng:18.072,bearing:0,  speed:0, routeType:2,line:'Pendeltåg',dest:'Uppsala C', operator:'SL',         routeId:'J',  tripId:'sl-t3'},
+    {id:'VT-B100-004',label:'100',lat:57.704,lng:11.967,bearing:90, speed:32,routeType:3,line:'100',  dest:'Frölunda',    operator:'Västtrafik', routeId:'100',tripId:'vt-t1'},
+    {id:'VT-T6-005', label:'6',  lat:57.710,lng:11.975,bearing:180,speed:28,routeType:0,line:'6',     dest:'Järntorget',  operator:'Västtrafik', routeId:'6',  tripId:'vt-t2'},
+    {id:'SKR-PT-006',label:'PT', lat:55.604,lng:13.000,bearing:135,speed:45,routeType:2,line:'Pågatåg',dest:'Hässleholm', operator:'Skånetrafiken',routeId:'PT',tripId:'sk-t1'},
+    {id:'SKR-B5-007',label:'5',  lat:55.610,lng:13.010,bearing:315,speed:20,routeType:3,line:'5',     dest:'Husie',       operator:'Skånetrafiken',routeId:'5', tripId:'sk-t2'},
+    {id:'UL-B1-008', label:'1',  lat:59.858,lng:17.642,bearing:200,speed:35,routeType:3,line:'1',     dest:'Uppsala C',   operator:'UL',         routeId:'1',  tripId:'ul-t1'},
+    {id:'SJ-X2-010', label:'X2', lat:58.415,lng:15.625,bearing:0,  speed:190,routeType:2,line:'X2000',dest:'Stockholm C', operator:'SJ',         routeId:'X2', tripId:'sj-t1'},
+    {id:'MTR-T-011', label:'T',  lat:59.345,lng:18.040,bearing:90, speed:60,routeType:1,line:'Röda linjen',dest:'Mörby C', operator:'MTR',        routeId:'RT', tripId:'mtr-t1'},
+  ].forEach(v=>{landMap[v.id]=v;});
+  document.getElementById('pill').textContent=Object.keys(landMap).length+' vehicles';
+}
+
 /* ═══ INIT ═════════════════════════════════════════════════════ */
 fetchViewport(true).then(()=>{drawNFZ();startAutoRefresh();});
+vlog('ok','VectorWatch initialised — Air + Sea domains active');
 </script>
 </body>
 </html>
