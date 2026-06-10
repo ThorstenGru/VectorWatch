@@ -647,6 +647,15 @@ function flightPhase(ft,vr,cat){
 /* ═══ STATE ════════════════════════════════════════════════════ */
 let flightMap={}, acCache={}, selected=null, activeFilter='all', query='', markers={};
 let seaFilter='all';   // active sea vessel type filter
+// Per-country winning fetch route (0=direct,1..3=proxy). Persisted across visits.
+let landProxyCache = {};
+try{ landProxyCache = JSON.parse(localStorage.getItem('vw_landproxy')||'{}'); }catch(e){}
+function rememberLandProxy(country, label){
+  const idx = {direct:0, corsproxy:1, codetabs:2, allorigins:3}[label];
+  if(idx===undefined) return;
+  landProxyCache[country]=idx;
+  try{ localStorage.setItem('vw_landproxy', JSON.stringify(landProxyCache)); }catch(e){}
+}
 let landFilter='all';  // active land vehicle type filter
 let activeDomain='air'; // 'air' | 'sea' | 'land'
 let vesselMap={};  // MMSI → vessel object (sea domain)
@@ -727,37 +736,19 @@ function planeIcon(hdg,color,sz,op){
 }
 
 /* ═══ PROXIES ═══════════════════════════════════════════════════
-   Priority order:
-   1. Netlify Function — runs on AWS Lambda, fresh IPs, passes GTFS-RT auth
-      URL auto-detected from current page origin when hosted on Netlify.
-   2. corsproxy.io — fallback (works for air, blocked for most GTFS-RT)
-   3. allorigins.win — last resort
+   Pure browser-side CORS relays — no external infrastructure.
+   The app tries DIRECT first (several agencies have open CORS),
+   then each proxy in order. The winning combo per country is
+   cached in memory + localStorage so the next poll is instant.
 ════════════════════════════════════════════════════════════════ */
-
-// Auto-detect Netlify deployment — works on *.netlify.app and custom domains
-// connected via Netlify. On github.io this is empty → falls back to corsproxy.
-const NETLIFY_ORIGIN = (() => {
-  const h = location.hostname;
-  if (h.endsWith('.netlify.app')) return location.origin;
-  // Custom domain via Netlify? Set manually here if needed:
-  // if (h === 'yourdomain.com') return 'https://yourdomain.com';
-  return '';
-})();
-
-const NETLIFY_PROXY = u => NETLIFY_ORIGIN
-  ? `${NETLIFY_ORIGIN}/.netlify/functions/gtfs-proxy?url=${encodeURIComponent(u)}`
-  : null;
-
-const _cfProxyFn = NETLIFY_PROXY; // alias — used elsewhere in code
-const CF_PROXY   = NETLIFY_PROXY; // alias
-const CORSProxy  = u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`;
-const AOProxy    = u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
-
-const PROXIES = [
-  ...(NETLIFY_ORIGIN ? [NETLIFY_PROXY] : []),
-  CORSProxy,
-  AOProxy,
+const PROXIES=[
+  u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
+const CORSProxy = PROXIES[0];
+const AOProxy   = PROXIES[2];
+
 const API_BASES=[
   {name:'adsb.lol',       base:'https://api.adsb.lol'},
   {name:'adsb.one',       base:'https://api.adsb.one'},
@@ -1051,8 +1042,8 @@ async function enrichAircraft(hex,callsign){
   acCache[hex]={_done:false};
   vlog('info',`Enriching ${hex} / ${callsign||'?'}`);
   try{
-    const infoUrl=NETLIFY_PROXY('https://hexdb.io/api/v1/aircraft/'+hex)||PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
-    const imgUrl=NETLIFY_PROXY('https://hexdb.io/hex-image-thumb?hex='+hex)||PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
+    const infoUrl=PROXIES[0]('https://hexdb.io/api/v1/aircraft/'+hex);
+    const imgUrl=PROXIES[0]('https://hexdb.io/hex-image-thumb?hex='+hex);
     const [ir,imgr]=await Promise.all([fetch(infoUrl).catch(()=>null),fetch(imgUrl).catch(()=>null)]);
     if(ir&&ir.ok){
       const d=await ir.json();
@@ -1064,7 +1055,7 @@ async function enrichAircraft(hex,callsign){
   if(callsign&&callsign.trim()&&callsign!=='?'){
     try{
       const cs=callsign.trim().toUpperCase();
-      const rUrl=NETLIFY_PROXY('https://api.adsbdb.com/v0/callsign/'+cs)||PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
+      const rUrl=PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
       vlog('info','  adsbdb route for '+cs);
       const rr=await fetch(rUrl);
       if(rr.ok){
@@ -1531,6 +1522,7 @@ function setDomain(domain, el){
   clearTimeout(moveTimer); moveTimer=null;    // air debounce timer — CRITICAL
   if(aisSocket){ aisSocket.close(); aisSocket=null; } // sea WebSocket
   if(landTimer){ clearInterval(landTimer); landTimer=null; } // land poll
+  stopFinlandMQTT();   // Finland MQTT stream
   clearTimeout(window._landMoveTimer);
   map.off('moveend.land'); map.off('zoomend.land');  // land move listeners
 
@@ -2063,14 +2055,18 @@ async function fetchOperatorPositions(operator, overrideUrl){
 
   // Try direct first — GTFS-RT APIs send CORS headers for browser origins.
   // Proxies are fallback. All responses may be gzip-encoded — decompress first.
-  // Build attempt list — Netlify function first, then fallbacks
-  const netlifyUrl = NETLIFY_PROXY(targetUrl);
-  const attempts = [
-    netlifyUrl ? {label:'netlify', url: netlifyUrl} : null,
+  // Attempt matrix: direct first (open-CORS agencies), then every proxy.
+  // Winning index is cached per country — next poll goes straight there.
+  let attempts = [
     {label:'direct',    url: targetUrl},
-    {label:'corsproxy', url: `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`},
-    {label:'allorigins',url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`},
-  ].filter(Boolean);
+    {label:'corsproxy', url: PROXIES[0](targetUrl)},
+    {label:'codetabs',  url: PROXIES[1](targetUrl)},
+    {label:'allorigins',url: PROXIES[2](targetUrl)},
+  ];
+  const cached = landProxyCache[operator];
+  if(cached !== undefined && attempts[cached]){
+    attempts = [attempts[cached], ...attempts.filter((_,i)=>i!==cached)];
+  }
 
   for(const attempt of attempts){
     try{
@@ -2105,6 +2101,7 @@ async function fetchOperatorPositions(operator, overrideUrl){
         vlog('info', `  Feed decoded: ${vehicles.length} vehicles (${total} total in feed)`);
         if(vehicles.length > 0 || total > 0){
           vlog('ok', `  ✓ ${attempt.label} success: ${vehicles.length} vehicles`);
+          rememberLandProxy(operator, attempt.label);
           return vehicles;
         }
       }catch(e2){ /* use vehicles array as-is */ }
@@ -2161,6 +2158,11 @@ function decodePb(buffer){
 // ── MAIN LAND FETCH ───────────────────────────────────────────
 async function fetchLandVehicles(){
   if(activeDomain!=='land') return;
+  // Finland streams via MQTT — no polling
+  if(LAND_COUNTRY_CONFIG[landCountry]?.api === 'mqtt_hsl'){
+    if(!mqttClient) startFinlandMQTT();
+    return;
+  }
 
   const cfg = LAND_COUNTRY_CONFIG[landCountry];
   if(!cfg){ setStatus('err','Unknown country: '+landCountry); return; }
@@ -2191,7 +2193,7 @@ async function fetchLandVehicles(){
     try{
       const jsonUrl = cfg.primaryUrl || cfg.url;
       const ctrl2=new AbortController(); const tid2=setTimeout(()=>ctrl2.abort(),8000);
-      const irishProxies=[NETLIFY_PROXY(jsonUrl),CORSProxy(jsonUrl),AOProxy(jsonUrl)].filter(Boolean);
+      const irishProxies=PROXIES.map(p=>p(jsonUrl));
       for(let pi=0;pi<irishProxies.length;pi++){
         const res=await fetch(irishProxies[pi],{signal:ctrl2.signal}).catch(()=>null);
         if(res&&res.ok){
@@ -2242,7 +2244,8 @@ async function fetchLandVehicles(){
     loadLandDemoForCountry(landCountry);
     if(Object.keys(landMap).length===0) loadLandDemo();
     renderLand();
-    setStatus('err',`${LAND_COUNTRY_CONFIG[landCountry]?.flag||''} Live feed unavailable — showing DEMO DATA (not real-time)`);
+    const _rc=LAND_COUNTRY_CONFIG[landCountry];
+    setStatus('err',`${_rc?.flag||''} ${_rc?.regUrl?'API key required — register free at '+_rc.regUrl.replace('https://',''):'Live feed unavailable'} — showing DEMO DATA`);
     document.getElementById('srcbadge').textContent=landCountry+' · demo';
   }
 }
@@ -2358,18 +2361,20 @@ const LAND_COUNTRY_CONFIG = {
 
   FI:{
     name:'Finland', flag:'🇫🇮', status:'active',
-    center:[64.0,26.0], zoom:5,
+    center:[60.20,24.95], zoom:11,   // Helsinki region — where HFP data lives
     bbox:[59.7,19.0,70.1,31.6],
-    api:'gtfs_rt_protobuf',
-    // Digitransit / HSL — free, no key for basic positions
-    // Helsinki region (HSL) — most comprehensive
-    url:'https://realtime.hsl.fi/realtime/vehicle-positions/v2/hsl',
-    license:'EUPL 1.2', update_s:5,
-    notes:'HSL Helsinki region · No key required · Full Finland via api.digitransit.fi',
+    api:'mqtt_hsl',
+    // HSL High-Frequency Positioning — MQTT over WebSocket.
+    // WebSockets are NOT subject to CORS → works from any origin, no key.
+    url:'wss://mqtt.hsl.fi:443/',
+    topic:'/hfp/v2/journey/ongoing/vp/#',
+    license:'CC BY 4.0', update_s:1,
+    notes:'HSL HFP MQTT · Helsinki region · 1s updates · No key, no CORS',
   },
 
   DK:{
-    name:'Denmark', flag:'🇩🇰', status:'active',
+    name:'Denmark', flag:'🇩🇰', status:'planned',
+    regUrl:'https://labs.rejseplanen.dk',
     center:[56.0,10.0], zoom:7,
     bbox:[54.5,8.0,57.8,15.3],
     api:'gtfs_rt_protobuf',
@@ -2388,10 +2393,9 @@ const LAND_COUNTRY_CONFIG = {
     api:'gtfs_rt_protobuf',
     // VBB (Berlin/Brandenburg) — free, no key, open CORS
     // Full Germany: Mobilithek (requires registration)
-    url:'https://www.vbb.de/fileadmin/user_upload/VBB/Dokumente/API-Datendienste/gtfs-rt/Vehicles.pb',
-    altUrl:'https://download.gtfs.de/germany/free/gtfs_rt.zip',
-    license:'CC-BY 4.0', update_s:30,
-    notes:'VBB Berlin/Brandenburg · Free · Full Germany via Mobilithek.info',
+    url:'https://realtime.gtfs.de/realtime-free.pb',
+    license:'CC-BY 4.0', update_s:120,
+    notes:'gtfs.de DELFI aggregation · ALL of Germany · No key · ~2min updates',
   },
 
   NL:{
@@ -2406,7 +2410,8 @@ const LAND_COUNTRY_CONFIG = {
   },
 
   FR:{
-    name:'France', flag:'🇫🇷', status:'active',
+    name:'France', flag:'🇫🇷', status:'planned',
+    regUrl:'https://prim.iledefrance-mobilites.fr',
     center:[46.5,2.5], zoom:6,
     bbox:[41.3,-5.2,51.1,9.6],
     api:'gtfs_rt_protobuf',
@@ -2417,7 +2422,8 @@ const LAND_COUNTRY_CONFIG = {
   },
 
   CH:{
-    name:'Switzerland', flag:'🇨🇭', status:'active',
+    name:'Switzerland', flag:'🇨🇭', status:'planned',
+    regUrl:'https://opentransportdata.swiss',
     center:[46.8,8.2], zoom:8,
     bbox:[45.8,5.9,47.8,10.5],
     api:'gtfs_rt_protobuf',
@@ -2431,7 +2437,7 @@ const LAND_COUNTRY_CONFIG = {
   },
 
   AT:{
-    name:'Austria', flag:'🇦🇹', status:'active',
+    name:'Austria', flag:'🇦🇹', status:'planned',
     center:[47.5,14.0], zoom:7,
     bbox:[46.4,9.5,49.0,17.2],
     api:'gtfs_rt_protobuf',
@@ -2455,7 +2461,8 @@ const LAND_COUNTRY_CONFIG = {
   },
 
   IE:{
-    name:'Ireland', flag:'🇮🇪', status:'active',
+    name:'Ireland', flag:'🇮🇪', status:'planned',
+    regUrl:'https://developer.nationaltransport.ie',
     center:[53.2,-8.0], zoom:7,
     bbox:[51.4,-10.5,55.4,-6.0],
     api:'gtfs_rt_json',
@@ -2494,7 +2501,8 @@ function setLandCountry(code, el, skipFly){
 
   if(!changed) return; // same country, no need to reload
 
-  // Clear existing land markers
+  // Clear existing land markers + stop any FI stream
+  stopFinlandMQTT();
   Object.values(landMarkers).forEach(m=>map.removeLayer(m));
   landMarkers={}; landMap={};
 
@@ -2539,6 +2547,104 @@ function autoDetectCountry(){
 /* ════════════════════════════════════════════════════════════
    POLL CONTROL
 ════════════════════════════════════════════════════════════ */
+
+/* ═══ FINLAND — HSL MQTT-over-WebSocket (HFP) ═══════════════════
+   WebSockets bypass CORS entirely. HSL's High-Frequency Positioning
+   API streams every vehicle in the Helsinki region at ~1s rate.
+   Topic: /hfp/v2/journey/ongoing/vp/<mode>/<oper>/<veh>/...
+   Payload: {"VP":{lat,long,spd,hdg,desi,oper,veh,route,...}}
+════════════════════════════════════════════════════════════════ */
+let mqttClient = null;
+let mqttRenderTimer = null;
+
+function loadMqttLib(){
+  return new Promise((resolve, reject) => {
+    if(window.mqtt) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('mqtt.js load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+const HFP_MODE_TO_ROUTETYPE = {bus:3, tram:0, train:2, metro:1, ferry:4, ubus:3};
+
+async function startFinlandMQTT(){
+  stopFinlandMQTT();
+  setStatus('load','🇫🇮 Connecting to HSL MQTT stream…');
+  try{
+    await loadMqttLib();
+  }catch(e){
+    vlog('error','mqtt.js failed to load: '+e.message);
+    loadLandDemoForCountry('FI'); renderLand();
+    setStatus('err','🇫🇮 MQTT library unavailable — showing demo');
+    return;
+  }
+  if(activeDomain!=='land' || landCountry!=='FI') return;
+
+  vlog('info','HSL MQTT: connecting wss://mqtt.hsl.fi:443/');
+  mqttClient = window.mqtt.connect('wss://mqtt.hsl.fi:443/', {
+    clientId: 'vectorwatch_' + Math.random().toString(16).slice(2,10),
+    keepalive: 30, reconnectPeriod: 5000, connectTimeout: 10000,
+  });
+
+  mqttClient.on('connect', () => {
+    vlog('ok','HSL MQTT connected — subscribing to vehicle positions');
+    mqttClient.subscribe('/hfp/v2/journey/ongoing/vp/#', {qos:0});
+    setStatus('ok','🇫🇮 HSL live stream connected · '+new Date().toLocaleTimeString());
+    document.getElementById('srcbadge').textContent='🇫🇮 HSL MQTT · live';
+  });
+
+  mqttClient.on('message', (topic, payload) => {
+    if(activeDomain!=='land' || landCountry!=='FI') return;
+    try{
+      const vp = JSON.parse(payload.toString()).VP;
+      if(!vp || vp.lat==null || vp.long==null) return;
+      const parts = topic.split('/');          // ['',hfp,v2,journey,ongoing,vp,<mode>,<oper>,<veh>,...]
+      const mode  = parts[6] || 'bus';
+      const id    = `FI-${vp.oper||parts[7]||0}-${vp.veh||parts[8]||0}`;
+      landMap[id] = {
+        id, label: vp.desi || '—',
+        lat: vp.lat, lng: vp.long,
+        bearing: vp.hdg || 0,
+        speed: Math.round((vp.spd||0)*3.6),
+        routeType: HFP_MODE_TO_ROUTETYPE[mode] ?? 3,
+        line: vp.desi || '—',
+        dest: '—',
+        operator: 'HSL',
+        routeId: vp.route || '—',
+        tripId: '—',
+      };
+    }catch(e){ /* skip malformed */ }
+  });
+
+  mqttClient.on('error', (e) => {
+    vlog('error','HSL MQTT error: '+(e?.message||e));
+    if(Object.keys(landMap).length===0){
+      loadLandDemoForCountry('FI'); renderLand();
+      setStatus('err','🇫🇮 MQTT failed — showing demo');
+    }
+  });
+
+  mqttClient.on('close', () => vlog('warn','HSL MQTT closed'));
+
+  // Render loop — MQTT pushes hundreds of msgs/sec; render every 2s
+  mqttRenderTimer = setInterval(() => {
+    if(activeDomain!=='land' || landCountry!=='FI') return;
+    // prune stale (no update possible to track per-msg cheaply; cap size)
+    const keys = Object.keys(landMap);
+    if(keys.length > 4000) keys.slice(0, keys.length-4000).forEach(k=>delete landMap[k]);
+    renderLand();
+    document.getElementById('pill').textContent = Object.keys(landMap).length.toLocaleString()+' vehicles';
+  }, 2000);
+}
+
+function stopFinlandMQTT(){
+  if(mqttRenderTimer){ clearInterval(mqttRenderTimer); mqttRenderTimer=null; }
+  if(mqttClient){ try{ mqttClient.end(true); }catch(e){} mqttClient=null; }
+}
+
 function startLandPoll(){
   // Note: setDomain already did full cleanup before calling this
   // Auto-detect country from map center (sets landCountry, no double fetch)
@@ -2568,6 +2674,7 @@ function startLandPoll(){
 }
 
 function stopLandPoll(){
+  stopFinlandMQTT();
   if(landTimer){ clearInterval(landTimer); landTimer=null; }
   clearTimeout(window._landMoveTimer);
   map.off('moveend.land'); map.off('zoomend.land');
@@ -2872,31 +2979,31 @@ const LAND_COVERAGE_AREAS = [
   {code:'NO', name:'Norway',       source:'Entur national feed',          status:'live',
    color:'#00e8c8',
    poly:[[57.9,4.5],[57.9,31.1],[71.2,31.1],[71.2,4.5]]},
-  {code:'FI', name:'Finland',      source:'Digitransit / HSL',            status:'live',
+  {code:'FI', name:'Finland',      source:'HSL MQTT live stream (Helsinki)', status:'live',
    color:'#00e8c8',
    poly:[[59.7,19.0],[59.7,31.6],[70.1,31.6],[70.1,19.0]]},
-  {code:'DK', name:'Denmark',      source:'Rejseplanen GTFS-RT',          status:'live',
+  {code:'DK', name:'Denmark',      source:'Key required → labs.rejseplanen.dk', status:'partial',
    color:'#00e8c8',
    poly:[[54.5,8.0],[54.5,15.3],[57.8,15.3],[57.8,8.0]]},
-  {code:'DE', name:'Germany',      source:'VBB / Mobilithek',             status:'live',
+  {code:'DE', name:'Germany',      source:'gtfs.de DELFI — all Germany',  status:'live',
    color:'#00e8c8',
    poly:[[47.3,5.9],[47.3,15.0],[55.1,15.0],[55.1,5.9]]},
   {code:'NL', name:'Netherlands',  source:'OV-API national feed',         status:'live',
    color:'#00e8c8',
    poly:[[50.7,3.3],[50.7,7.2],[53.6,7.2],[53.6,3.3]]},
-  {code:'FR', name:'France',       source:'IDFM — Île-de-France region',  status:'partial',
+  {code:'FR', name:'France',       source:'Key required → prim.iledefrance-mobilites.fr', status:'partial',
    color:'#e8a040',
    poly:[[41.3,-5.2],[41.3,9.6],[51.1,9.6],[51.1,-5.2]]},
-  {code:'CH', name:'Switzerland',  source:'OpenTransportData.swiss',      status:'live',
+  {code:'CH', name:'Switzerland',  source:'Key required → opentransportdata.swiss', status:'partial',
    color:'#00e8c8',
    poly:[[45.8,5.9],[45.8,10.5],[47.8,10.5],[47.8,5.9]]},
-  {code:'AT', name:'Austria',      source:'ÖBB + Wiener Linien',          status:'live',
+  {code:'AT', name:'Austria',      source:'No open GTFS-RT available',    status:'partial',
    color:'#00e8c8',
    poly:[[46.4,9.5],[46.4,17.2],[49.0,17.2],[49.0,9.5]]},
   {code:'BE', name:'Belgium',      source:'iRail NMBS/SNCB',              status:'live',
    color:'#00e8c8',
    poly:[[49.5,2.5],[49.5,6.4],[51.5,6.4],[51.5,2.5]]},
-  {code:'IE', name:'Ireland',      source:'Transport for Ireland',        status:'live',
+  {code:'IE', name:'Ireland',      source:'Key required → developer.nationaltransport.ie',  status:'partial',
    color:'#00e8c8',
    poly:[[51.4,-10.5],[51.4,-6.0],[55.4,-6.0],[55.4,-10.5]]},
   // ── Partial / key needed ─────────────────────────────────────
@@ -3029,7 +3136,7 @@ const COV_CONTENT = {
       {color:'#e8a040', text:'<b>Partial coverage</b> — Some operators only (e.g. France = Paris region only, Germany = Berlin/Brandenburg only). National coverage varies by operator participation.'},
       {color:'#3a3d52', text:'<b>No data</b> — No free open GTFS-RT API exists for these regions. North/South America, Africa, Asia, and Australia have no unified free live transit API.'},
     ],
-    note:'<b>Why demo data is shown:</b> GTFS Realtime feeds are in protobuf binary format (not plain text). They require a CORS proxy to fetch from the browser. If the proxy is blocked or the feed is temporarily unavailable, demo data is shown instead of live positions.\n\nClick a country to load its data. The map auto-switches country as you pan.\n\n<span class="cv-src">Sources: Trafiklab · Entur · Digitransit · OV-API · iRail · and more</span>',
+    note:'<b>Live now (no key, no proxy needed):</b> 🇫🇮 Finland streams via HSL MQTT WebSocket. 🇳🇱 Netherlands + 🇩🇪 Germany fetch via CORS relay. 🇸🇪🇳🇴🇧🇪 are attempted on every poll — the app remembers whichever route succeeds.\n\n<b>Key required (shown as demo) — free registration:</b>\n🇫🇷 France — <a href="https://prim.iledefrance-mobilites.fr" target="_blank" class="cv-src">prim.iledefrance-mobilites.fr</a>\n🇨🇭 Switzerland — <a href="https://opentransportdata.swiss" target="_blank" class="cv-src">opentransportdata.swiss</a>\n🇮🇪 Ireland — <a href="https://developer.nationaltransport.ie" target="_blank" class="cv-src">developer.nationaltransport.ie</a>\n🇩🇰 Denmark — <a href="https://labs.rejseplanen.dk" target="_blank" class="cv-src">labs.rejseplanen.dk</a>\n🇦🇹 Austria — no open vehicle-position feed exists\n\nAfter registering, paste your key into LAND_COUNTRY_CONFIG in index.html.\n\nClick a country to load it. The map auto-switches as you pan.\n\n<span class="cv-src">Sources: HSL MQTT · gtfs.de · OV-API · Trafiklab · Entur · iRail</span>',
   },
 };
 
