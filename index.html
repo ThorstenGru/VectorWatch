@@ -2109,9 +2109,6 @@ async function fetchOperatorPositions(operator, overrideUrl){
         vlog('ok', `  ✓ ${vehicles.length} vehicles decoded via ${attempt.label}`);
         return vehicles;
       }
-      vlog('warn', `  Decoded 0 vehicles — feed may be empty or wrong format`);s decoded via ${attempt.label}`);
-        return vehicles;
-      }
       vlog('warn', `  Decoded 0 vehicles — feed may be empty or wrong format`);
     }catch(e){
       vlog('warn', `  ${attempt.label}: ${e.name==='AbortError'?'timeout (15s)':e.message}`);
