@@ -669,6 +669,7 @@ let landMarkers={};  // vehicleId → Leaflet marker
 let landTimer=null;  // poll interval
 let landCountry='SE'; // currently selected land country
 let autoTimer=null, moveTimer=null, isFetching=false, fetchSince=0, workingApi=null;
+let _tile429Count=0; // counts 429s across tile batches — used to decide proxy rotation vs full re-probe
 
 /* ═══ MAP ══════════════════════════════════════════════════════ */
 const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([52,10],5);
@@ -737,7 +738,7 @@ const PROXIES=[
   u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 const API_BASES=[
-  {name:'adsb.fi',        base:'https://opendata.adsb.fi/api'},  // open CORS — no proxy needed
+  {name:'adsb.fi',        base:'https://opendata.adsb.fi/api'},  // uses 'aircraft' field; CORS restricted — needs proxy
   {name:'adsb.lol',       base:'https://api.adsb.lol'},
   {name:'adsb.one',       base:'https://api.adsb.one'},
   {name:'airplanes.live', base:'https://api.airplanes.live'},
@@ -748,10 +749,12 @@ async function _rawFetch(url,label,ms){
   try{
     const res=await fetch(url,{signal:ctrl.signal});
     clearTimeout(tid);
-    if(!res.ok){vlog('warn',`${label} → HTTP ${res.status}`);return null;}
+    if(!res.ok){vlog('warn',`${label} → HTTP ${res.status}`);if(res.status===429)_tile429Count++;return null;}
     const j=await res.json();
-    if(j&&Array.isArray(j.ac)){vlog('ok',`${label} → ${j.ac.length} aircraft`);return j;}
-    if(j&&j.contents){try{const i=JSON.parse(j.contents);if(i&&Array.isArray(i.ac))return i;}catch(e){}}
+    // Normalize: adsb.fi uses 'aircraft', others use 'ac'
+    const _ac=Array.isArray(j?.ac)?j.ac:Array.isArray(j?.aircraft)?j.aircraft:null;
+    if(_ac){if(!j.ac)j.ac=_ac;vlog('ok',`${label} → ${_ac.length} aircraft`);return j;}
+    if(j&&j.contents){try{const i=JSON.parse(j.contents);const _ic=Array.isArray(i?.ac)?i.ac:Array.isArray(i?.aircraft)?i.aircraft:null;if(_ic){if(!i.ac)i.ac=_ic;return i;}}catch(e){}}
     vlog('warn',`${label} → no aircraft array`);return null;
   }catch(e){clearTimeout(tid);vlog('warn',`${label} → ${e.name==='AbortError'?'timeout':e.message}`);return null;}
 }
@@ -827,6 +830,7 @@ async function fetchViewport(manual){
     }
     const tiles=getViewportTiles();
     setStatus('load',`Fetching ${tiles.length} area(s)…`);
+    _tile429Count=0;
     const results=[];
     for(let _bi=0;_bi<tiles.length;_bi+=4){
       const _batch=tiles.slice(_bi,_bi+4);
@@ -846,7 +850,13 @@ async function fetchViewport(manual){
       setStatus('ok',`${fresh.length} in view · ${Object.keys(flightMap).length} tracked · ${new Date().toLocaleTimeString()}`);
       vlog('ok',`${allAc.length} raw → ${fresh.length} airborne from ${tileCount}/${tiles.length} tiles`);
     } else {
-      workingApi=null; setStatus('err','Fetch failed — will re-probe');
+      if(_tile429Count>2 && workingApi?.useProxy){
+        // Rate-limited by this proxy — rotate to next before re-probe
+        const _next=(workingApi.proxyIdx+1)%PROXIES.length;
+        if(_next===0){ workingApi=null; vlog('warn','All proxies 429 — full re-probe'); }
+        else { workingApi={...workingApi,proxyIdx:_next}; vlog('warn',`429 rate limit — rotating to proxy${_next+1}`); }
+      } else { workingApi=null; }
+      setStatus('err','Fetch failed — will re-probe');
     }
     renderMap();
   } catch(e) {
