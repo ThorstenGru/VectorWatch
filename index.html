@@ -297,7 +297,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v1.1.0</span></div>
+    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v1.2.0</span></div>
     <div id="domain-tabs" style="display:flex;gap:2px;flex-shrink:0">
       <button class="dtab on" id="tab-air" onclick="setDomain('air',this)" title="Air traffic">✈ Air</button>
       <button class="dtab"    id="tab-sea" onclick="setDomain('sea',this)" title="Maritime vessels">⚓ Sea</button>
@@ -399,7 +399,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 /* ═══ INTEL DB ═════════════════════════════════════════════════ */
 const INTEL_DB = {
   'ae040e':{agency:'USAF RC-135',country:'USA',note:'SIGINT/ELINT platform'},
@@ -664,6 +664,7 @@ let vesselMap={};  // MMSI → vessel object (sea domain)
 let vesselMarkers={};  // MMSI → Leaflet marker (sea domain)
 let aisSocket=null;  // WebSocket for aisstream.io
 let aisReconnectCount=0, aisReconnectTimer=null;
+let _seaMoveHandler=null; // stored ref so map.off() can remove it precisely
 let landMap={};      // vehicleId → land vehicle
 let landMarkers={};  // vehicleId → Leaflet marker
 let landTimer=null;  // poll interval
@@ -795,6 +796,7 @@ function getViewportTiles(){
     }
   }
   const c=map.getCenter();tiles.unshift({lat:c.lat.toFixed(3),lon:c.lng.toFixed(3)});
+  if(tiles.length>16) tiles.splice(16); // cap at 16 — prevents rate-limit storms at global zoom
   vlog('info',`Viewport ${(maxLat-minLat).toFixed(1)}°×${(maxLon-minLon).toFixed(1)}° → ${tiles.length} tile(s)`);
   return tiles;
 }
@@ -1603,7 +1605,7 @@ function getBoundingBox(){
 
 function startSeaStream(){
   // Remove any stale sea move listeners before (re)connecting
-  map.off('moveend.sea'); map.off('zoomend.sea');
+  if(_seaMoveHandler){ map.off('moveend',_seaMoveHandler); map.off('zoomend',_seaMoveHandler); _seaMoveHandler=null; }
   // Note: setDomain already closed any existing socket before calling this
   if(!AISSTREAM_KEY){
     vlog('warn','No AISstream key — showing sea demo data. Get a free key at aisstream.io');
@@ -1627,12 +1629,14 @@ function startSeaStream(){
       setStatus('ok','AIS stream connected · '+new Date().toLocaleTimeString());
       document.getElementById('srcbadge').textContent='aisstream.io · live';
       // Re-subscribe when user pans/zooms to cover new area
-      map.on('moveend.sea zoomend.sea', ()=>{
+      _seaMoveHandler = ()=>{
         if(activeDomain==='sea' && aisSocket && aisSocket.readyState===WebSocket.OPEN){
           vlog('info','Sea viewport changed — re-subscribing AIS');
           sendAISSubscription();
         }
-      });
+      };
+      map.on('moveend', _seaMoveHandler);
+      map.on('zoomend', _seaMoveHandler);
     };
     aisSocket.onmessage = (evt) => {
       let msg;
@@ -1667,7 +1671,7 @@ function startSeaStream(){
 }
 
 function stopSeaStream(){
-  map.off('moveend.sea'); map.off('zoomend.sea');
+  if(_seaMoveHandler){ map.off('moveend',_seaMoveHandler); map.off('zoomend',_seaMoveHandler); _seaMoveHandler=null; }
   if(aisReconnectTimer){ clearTimeout(aisReconnectTimer); aisReconnectTimer=null; }
   aisReconnectCount=0;
   if(aisSocket){ aisSocket.close(); aisSocket=null; }
