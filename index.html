@@ -665,7 +665,7 @@ let landMap={};      // vehicleId → land vehicle
 let landMarkers={};  // vehicleId → Leaflet marker
 let landTimer=null;  // poll interval
 let landCountry='SE'; // currently selected land country
-let autoTimer=null, moveTimer=null, isFetching=false, workingApi=null;
+let autoTimer=null, moveTimer=null, isFetching=false, fetchSince=0, workingApi=null;
 
 /* ═══ MAP ══════════════════════════════════════════════════════ */
 const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([52,10],5);
@@ -703,21 +703,8 @@ map.on('moveend zoomend',()=>{
   clearTimeout(moveTimer);
   if(activeDomain==='air'){
     moveTimer=setTimeout(()=>fetchViewport(false),500);
-  } else if(activeDomain==='land'){
-    // Auto-detect country from new center and update button
-    const c=map.getCenter();
-    const det=detectCountryFromCenter(c.lat,c.lng);
-    if(det){
-      document.querySelectorAll('.lc').forEach(b=>b.classList.remove('on'));
-      const btn=document.getElementById('lc-'+det.toLowerCase());
-      if(btn) btn.classList.add('on');
-      // Only trigger a full country switch if we moved to a NEW country
-      if(det!==landCountry){
-        landCountry=det;
-        // Fetch is already scheduled by moveend.land handler
-      }
-    }
   }
+  // Land auto-detect handled by the moveend.land namespaced handler in startLandPoll()
 });
 
 /* ═══ PLANE ICON ═══════════════════════════════════════════════ */
@@ -746,9 +733,6 @@ const PROXIES=[
   u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
   u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
-const CORSProxy = PROXIES[0];
-const AOProxy   = PROXIES[2];
-
 const API_BASES=[
   {name:'adsb.lol',       base:'https://api.adsb.lol'},
   {name:'adsb.one',       base:'https://api.adsb.one'},
@@ -826,7 +810,7 @@ function parseV2(ac){
 async function fetchViewport(manual){
   if(activeDomain !== 'air') return;
   if(isFetching&&!manual) return;
-  isFetching=true; ring(true);
+  isFetching=true; fetchSince=Date.now(); ring(true);
   if(manual) document.getElementById('rbtn').classList.add('spin');
   try {
     setStatus('load','Loading…');
@@ -861,7 +845,7 @@ async function fetchViewport(manual){
     vlog('error','fetchViewport uncaught: '+e.message);
     setStatus('err','Fetch error — will retry');
   } finally {
-    isFetching=false; ring(false);
+    isFetching=false; fetchSince=0; ring(false);
     document.getElementById('rbtn').classList.remove('spin');
   }
 }
@@ -891,7 +875,7 @@ function filtered(){
 }
 function setFilter(cat,el){
   activeFilter=cat;
-  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#filterbar-air .fb').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(selected){
     const f=Object.values(flightMap).find(x=>x.id===selected);
@@ -1080,9 +1064,10 @@ async function selectFlight(id){
   map.flyTo([f.lat,f.lng],7,{duration:1.0,easeLinearity:.5});
   await enrichAircraft(f.hex,f.id);
   if(selected===id){
-    renderDetail(f);
-    const c=acCache[f.hex]||{};
-    if(c.route)drawRoute(f,c.route);
+    const fFresh=allList().find(x=>x.id===id)||f;
+    renderDetail(fFresh);
+    const c=acCache[fFresh.hex]||{};
+    if(c.route)drawRoute(fFresh,c.route);
   }
 }
 function deselect(silent){
@@ -1520,7 +1505,7 @@ function setDomain(domain, el){
   // ── 1. STOP all running sources ────────────────────────────
   clearInterval(autoTimer); autoTimer=null;   // air auto-refresh
   clearTimeout(moveTimer); moveTimer=null;    // air debounce timer — CRITICAL
-  if(aisSocket){ aisSocket.close(); aisSocket=null; } // sea WebSocket
+  stopSeaStream();   // sea WebSocket + move listeners
   if(landTimer){ clearInterval(landTimer); landTimer=null; } // land poll
   stopFinlandMQTT();   // Finland MQTT stream
   clearTimeout(window._landMoveTimer);
@@ -1535,6 +1520,8 @@ function setDomain(domain, el){
   Object.values(vesselMarkers).forEach(m=>map.removeLayer(m));
   Object.values(landMarkers).forEach(m=>map.removeLayer(m));
   markers={}; flightMap={};
+  Object.values(acCache).forEach(c=>{ if(c.photoUrl) URL.revokeObjectURL(c.photoUrl); });
+  acCache={};
   vesselMarkers={}; vesselMap={};
   landMarkers={}; landMap={};
   clearRoute();
@@ -1597,6 +1584,8 @@ function getBoundingBox(){
 }
 
 function startSeaStream(){
+  // Remove any stale sea move listeners before (re)connecting
+  map.off('moveend.sea'); map.off('zoomend.sea');
   // Note: setDomain already closed any existing socket before calling this
   if(!AISSTREAM_KEY){
     vlog('warn','No AISstream key — showing sea demo data. Get a free key at aisstream.io');
@@ -1627,10 +1616,9 @@ function startSeaStream(){
       });
     };
     aisSocket.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data);
-        handleAISMessage(msg);
-      } catch(e){ /* ignore parse errors */ }
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch(e){ return; }
+      try { handleAISMessage(msg); } catch(e){ vlog('error','AIS handler: '+e.message); }
     };
     aisSocket.onerror = (e) => {
       vlog('error','AIS WebSocket error — showing demo sea data');
@@ -2092,21 +2080,11 @@ async function fetchOperatorPositions(operator, overrideUrl){
       vlog('info', `  Raw: ${buf.byteLength} bytes — checking encoding…`);
       // Decompress gzip if needed (proxies often preserve Content-Encoding)
       buf = await decompressIfNeeded(buf);
-      const vehicles = decodePb(buf);
-      // Count total in feed regardless of viewport
-      try{
-        const FeedMessage2 = pbRoot.lookupType('FeedMessage');
-        const msg2 = FeedMessage2.decode(new Uint8Array(buf));
-        const total = (msg2.entity||[]).filter(e=>e.vehicle).length;
-        vlog('info', `  Feed decoded: ${vehicles.length} vehicles (${total} total in feed)`);
-        if(vehicles.length > 0 || total > 0){
-          vlog('ok', `  ✓ ${attempt.label} success: ${vehicles.length} vehicles`);
-          rememberLandProxy(operator, attempt.label);
-          return vehicles;
-        }
-      }catch(e2){ /* use vehicles array as-is */ }
-      if(vehicles.length > 0){
-        vlog('ok', `  ✓ ${vehicles.length} vehicles decoded via ${attempt.label}`);
+      const {vehicles, total} = decodePb(buf);
+      vlog('info', `  Feed decoded: ${vehicles.length} vehicles (${total} total in feed)`);
+      if(vehicles.length > 0 || total > 0){
+        vlog('ok', `  ✓ ${attempt.label} success: ${vehicles.length} vehicles`);
+        rememberLandProxy(operator, attempt.label);
         return vehicles;
       }
       vlog('warn', `  Decoded 0 vehicles — feed may be empty or wrong format`);
@@ -2124,10 +2102,13 @@ function decodePb(buffer){
     const FeedMessage = pbRoot.lookupType('FeedMessage');
     const msg = FeedMessage.decode(new Uint8Array(buffer));
     const vehicles = [];
+    let total = 0;
     // Do NOT filter by viewport here — filter after fetching country
     // so we can zoom to where vehicles actually are
     (msg.entity||[]).forEach(e=>{
-      const vp = e.vehicle; if(!vp||!vp.position) return;
+      const vp = e.vehicle; if(!vp) return;
+      total++;
+      if(!vp.position) return;
       const lat = vp.position.latitude, lng = vp.position.longitude;
       if(!lat||!lng) return;
       const id = vp.vehicle?.id || vp.vehicle?.label || e.id || '';
@@ -2145,10 +2126,10 @@ function decodePb(buffer){
         operator: '—',
       });
     });
-    return vehicles;
+    return {vehicles, total};
   }catch(e){
     vlog('error','Protobuf decode error: '+e.message);
-    return [];
+    return {vehicles:[], total:0};
   }
 }
 
@@ -2207,6 +2188,7 @@ async function fetchLandVehicles(){
           vlog('ok',`JSON vehicles: ${vehicles.length}`); break;
         }
       }
+      clearTimeout(tid2);
     }catch(e){ vlog('warn','JSON fetch failed: '+e.message); }
   }
 
@@ -2612,6 +2594,7 @@ async function startFinlandMQTT(){
         operator: 'HSL',
         routeId: vp.route || '—',
         tripId: '—',
+        lastSeen: Date.now(),
       };
     }catch(e){ /* skip malformed */ }
   });
@@ -2629,9 +2612,9 @@ async function startFinlandMQTT(){
   // Render loop — MQTT pushes hundreds of msgs/sec; render every 2s
   mqttRenderTimer = setInterval(() => {
     if(activeDomain!=='land' || landCountry!=='FI') return;
-    // prune stale (no update possible to track per-msg cheaply; cap size)
-    const keys = Object.keys(landMap);
-    if(keys.length > 4000) keys.slice(0, keys.length-4000).forEach(k=>delete landMap[k]);
+    // prune vehicles not updated in the last 30s
+    const now = Date.now();
+    Object.keys(landMap).forEach(k=>{ if(now-(landMap[k].lastSeen||0)>30000) delete landMap[k]; });
     renderLand();
     document.getElementById('pill').textContent = Object.keys(landMap).length.toLocaleString()+' vehicles';
   }, 2000);
@@ -3188,15 +3171,11 @@ fetchViewport(true).then(()=>{
   startAutoRefresh();
   // Watchdog: if isFetching gets stuck (uncaught exception), reset it every 30s
   setInterval(()=>{
-    if(isFetching){
-      const now = Date.now();
-      if(!isFetching._since) isFetching._since = now;
-      else if(now - isFetching._since > 28000){
-        vlog('warn','isFetching stuck > 28s — force-resetting');
-        isFetching = false; ring(false);
-        document.getElementById('rbtn').classList.remove('spin');
-      }
-    } else { if(isFetching && isFetching._since) delete isFetching._since; }
+    if(isFetching && fetchSince && Date.now()-fetchSince > 28000){
+      vlog('warn','isFetching stuck > 28s — force-resetting');
+      isFetching=false; fetchSince=0; ring(false);
+      document.getElementById('rbtn').classList.remove('spin');
+    }
   }, 5000);
 });
 vlog('ok','VectorWatch initialised — Air + Sea domains active');
