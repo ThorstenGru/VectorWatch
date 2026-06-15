@@ -360,6 +360,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="fb sf-sail"   onclick="setSeaFilter('sail',this)"><span class="fb-dot" style="background:#a0d0ff"></span>⛵ Sail / Pleasure</button>
     <button class="fb sf-tug"    onclick="setSeaFilter('towing',this)"><span class="fb-dot" style="background:#c8a060"></span>⚙ Tug / Service</button>
     <button class="fb sf-hs"     onclick="setSeaFilter('highspeed',this)"><span class="fb-dot" style="background:#e060e8"></span>💨 High-speed</button>
+    <button id="fb-offshore" onclick="toggleOffshore(this)" title="Hide inland/river vessels at wide zoom" style="margin-left:6px;border-color:#1e4a6a">🌊 Offshore only</button>
   </div>
   <!-- LAND filters -->
   <div id="filterbar-land" class="filterbar" style="display:none">
@@ -675,6 +676,32 @@ function flightPhase(ft,vr,cat){
 /* ═══ STATE ════════════════════════════════════════════════════ */
 let flightMap={}, acCache={}, selected=null, activeFilter='all', query='', markers={};
 let seaFilter='all';   // active sea vessel type filter
+let seaOffshoreOnly=false; // when true, hide vessels in inland/landlocked areas at low zoom
+
+/* rough inland bbox exclusion zones — vessels here are rivers/canals, confusing at zoom<9 */
+const INLAND_BBOX=[
+  [46.4, 9.5, 48.1, 17.2],  // Austria
+  [45.8, 6.0, 47.8, 10.5],  // Switzerland
+  [45.7,16.0, 48.6, 22.9],  // Hungary/Slovakia
+  [48.5,12.5, 51.2, 18.9],  // Czechia
+  [53.8,14.5, 55.0, 24.0],  // Poland interior (away from Baltic)
+  [50.0, 3.0, 51.4,  5.5],  // Belgium interior
+  [48.5,-1.5, 50.5,  3.5],  // N.France interior (not Seine estuary)
+  [51.5,-2.5, 54.0,  0.5],  // England interior (away from Thames mouth)
+  [57.0,-5.5, 59.5, -2.0],  // Scottish highlands
+  [46.0,13.5, 47.5, 16.5],  // Slovenia
+  [41.0,20.0, 42.7, 29.5],  // Balkan interior
+  [39.5,21.5, 42.0, 29.0],  // Greece interior
+  [41.5,24.5, 44.5, 29.5],  // Bulgaria interior
+  [44.0,22.5, 48.5, 30.5],  // Romania interior (not Danube delta)
+  [53.5,23.5, 57.0, 32.0],  // Belarus interior
+  [50.0,28.0, 53.0, 37.0],  // Ukraine interior
+];
+function isOffshore(lat,lng){
+  if(map.getZoom()>=9) return true; // rivers visible at z9+, show all
+  if(seaOffshoreOnly) return !INLAND_BBOX.some(([s,w,n,e])=>lat>=s&&lat<=n&&lng>=w&&lng<=e);
+  return true;
+}
 // Per-country winning fetch route (0=direct,1..3=proxy). Persisted across visits.
 let landProxyCache = {};
 try{ landProxyCache = JSON.parse(localStorage.getItem('vw_landproxy')||'{}'); }catch(e){}
@@ -736,6 +763,8 @@ map.on('moveend zoomend',()=>{
   if(activeDomain==='air'){
     moveTimer=setTimeout(()=>fetchViewport(false),500);
   }
+  // Re-render sea on zoom changes so offshore filter threshold (z9) applies immediately
+  if(activeDomain==='sea') renderSea();
   // Land auto-detect handled by the moveend.land namespaced handler in startLandPoll()
 });
 
@@ -958,6 +987,11 @@ function setSeaFilter(cat, el){
       map.flyToBounds(bounds.pad(0.15),{maxZoom:9,duration:1.0});
     }
   }
+}
+function toggleOffshore(btn){
+  seaOffshoreOnly = !seaOffshoreOnly;
+  btn.classList.toggle('on', seaOffshoreOnly);
+  renderSea();
 }
 function vesselFilterMatch(v){
   if(seaFilter==='all') return true;
@@ -2036,6 +2070,10 @@ function renderVessel(mmsi){
   const v = vesselMap[mmsi];
   if(!v || v.lat==null) return;
   if(!vesselFilterMatch(v)) return; // sea filter
+  if(!isOffshore(v.lat, v.lng)){
+    if(vesselMarkers[mmsi]){ map.removeLayer(vesselMarkers[mmsi]); delete vesselMarkers[mmsi]; }
+    return;
+  }
   const tinfo  = classifyVessel(v.typeCode||0);
   const color  = VESSEL_CAT_COLOR[tinfo.cat] || '#6b6e8a';
   const isSel  = selected === mmsi;
