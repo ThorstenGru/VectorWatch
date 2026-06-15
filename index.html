@@ -2277,11 +2277,17 @@ async function fetchLandVehicles(){
 function renderLand(){
   if(activeDomain !== 'land') return;  // never render land markers in other domains
   Object.keys(landMarkers).forEach(id=>{
-    if(!landMap[id]){ map.removeLayer(landMarkers[id]); delete landMarkers[id]; }
+    // Remove stale markers and markers for vehicles filtered out
+    const v=landMap[id];
+    if(!v || (landFilter!=='all' && landRouteToFilterCat(v.routeType)!==landFilter)){
+      map.removeLayer(landMarkers[id]); delete landMarkers[id];
+    }
   });
+  let visCount=0;
   Object.keys(landMap).forEach(id=>{
     const v=landMap[id];
     if(landFilter!=='all' && landRouteToFilterCat(v.routeType)!==landFilter) return; // land filter
+    visCount++;
     const ti=landTypeInfo(v.routeType||3);
     const isSel=selected===id;
     const color=isSel?'#fff':ti.color;
@@ -2302,6 +2308,8 @@ function renderLand(){
       m.addTo(map); landMarkers[id]=m;
     }
   });
+  const total=Object.keys(landMap).length;
+  document.getElementById('pill').textContent=(landFilter!=='all'?visCount+' / ':'')+total.toLocaleString()+' vehicles';
 }
 
 // ── SELECT ────────────────────────────────────────────────────
@@ -2341,7 +2349,8 @@ function renderLandDetail(v){
     <div class="d-stat"><div class="d-stat-label">Destination</div><div class="d-stat-value" style="font-size:11px">${v.dest}</div></div>
     <div class="d-stat"><div class="d-stat-label">Trip identifier</div><div class="d-stat-value mono" style="font-size:10px">${v.tripId!=='—'?v.tripId:'—'}</div></div>
   </div>`;
-  html+=`<div style="font-size:10px;color:#3a3d52;margin-top:6px">Live GPS via Trafiklab GTFS Sweden 3 (CC0) · Updated every 2–3 seconds · All 21 Swedish regions</div>`;
+  const _lcfg=LAND_COUNTRY_CONFIG[landCountry];
+  html+=`<div style="font-size:10px;color:#3a3d52;margin-top:6px">${_lcfg?.flag||''} ${_lcfg?.notes||(_lcfg?.name||landCountry)+' · GTFS-RT live feed'}</div>`;
   document.getElementById('detail-inner').innerHTML=html;
   document.getElementById('detail').classList.add('on');
 }
