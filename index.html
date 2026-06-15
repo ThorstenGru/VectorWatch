@@ -214,7 +214,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 /* ── COVERAGE INFO PANEL — floating overlay, collapsible ── */
 #cov-panel{
   position:absolute;
-  top:54px;            /* just below Dark/NFZ buttons */
+  top:130px;            /* just below Dark/NFZ buttons */
   right:12px;
   z-index:1001;
   width:260px;
@@ -297,7 +297,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v1.4.0</span></div>
+    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v2.0.0</span></div>
     <div id="domain-tabs" style="display:flex;gap:2px;flex-shrink:0">
       <button class="dtab on" id="tab-air" onclick="setDomain('air',this)" title="Air traffic">✈ Air</button>
       <button class="dtab"    id="tab-sea" onclick="setDomain('sea',this)" title="Maritime vessels">⚓ Sea</button>
@@ -306,8 +306,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <input type="search" id="search" placeholder="Callsign, registration, type…" oninput="onSearch()"/>
     <span class="pill" id="pill">—</span>
     <button id="rbtn" onclick="fetchViewport(true)" title="Refresh">↻</button>
-    <button id="locbtn" onclick="locateMe()" title="Locate me">📍</button>
+    <button id="locbtn" onclick="locateMe()" title="Locate me (click) · Search location (long press)">📍</button>
+    <button id="locsearchbtn" onclick="toggleLocSearch()" title="Search location" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;transition:color .15s">🔍</button>
     <button id="logbtn" onclick="toggleLog()" title="Toggle debug log">📋 Log</button>
+  </div>
+  <!-- Location search overlay -->
+  <div id="locsearch-bar" style="display:none;position:absolute;top:50px;left:50%;transform:translateX(-50%);z-index:2000;background:#141720;border:1px solid #2a2e42;border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.6);width:360px;max-width:95vw">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="text" id="locsearch-input" placeholder="Search city, region, address…"
+        style="flex:1;background:#0d0f18;border:1px solid #2a2e42;color:#e0e2ee;border-radius:7px;padding:6px 10px;font-size:13px;outline:none;"
+        oninput="onLocSearchInput()" onkeydown="if(event.key==='Enter')doLocSearch()"/>
+      <button onclick="doLocSearch()" style="background:#4fa8e8;color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12px">Go</button>
+      <button onclick="toggleLocSearch()" style="background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;border-radius:7px;padding:6px 9px;cursor:pointer;font-size:12px">✕</button>
+    </div>
+    <div id="locsearch-results" style="margin-top:6px;max-height:180px;overflow-y:auto"></div>
   </div>
   <!-- AIR filters -->
   <div id="filterbar-air" class="filterbar" style="display:flex">
@@ -399,7 +411,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '2.0.0';
 /* ═══ INTEL DB ═════════════════════════════════════════════════ */
 const INTEL_DB = {
   'ae040e':{agency:'USAF RC-135',country:'USA',note:'SIGINT/ELINT platform'},
@@ -827,8 +839,8 @@ async function fetchViewport(manual){
     if(activeDomain !== 'air'){ isFetching=false; ring(false); return; } // switched away during probe
     if(!workingApi){
       if(Object.keys(flightMap).length===0)loadDemo();
-      setStatus('err','All APIs unreachable — showing demo data');
-      document.getElementById('srcbadge').textContent='demo';
+      setStatus('err','Air: no data received but expected — all ADS-B APIs temporarily unreachable');
+      document.getElementById('srcbadge').textContent='no data';
       renderMap(); return;
     }
     const tiles=getViewportTiles();
@@ -1038,6 +1050,114 @@ function vesselIcon(hdg, color, sz, op){
 function haverDist(a1,o1,a2,o2){
   const R=3440.1,dA=(a2-a1)*Math.PI/180,dO=(o2-o1)*Math.PI/180;
   return 2*R*Math.atan2(Math.sqrt(Math.sin(dA/2)**2+Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2),Math.sqrt(1-Math.sin(dA/2)**2-Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)**2));
+}
+
+/* ═══ MMSI COUNTRY LOOKUP (MID prefix) ═════════════════════════ */
+const MID_TABLE = {
+  '201':'AL','202':'AD','203':'AT','204':'PT','205':'BE','206':'BY','207':'BG',
+  '208':'VA','209':'CY','210':'CY','211':'DE','212':'CY','213':'GE','214':'MD',
+  '215':'MT','216':'AM','218':'DE','219':'DK','220':'DK','221':'ES','224':'ES',
+  '225':'ES','226':'FR','227':'FR','228':'FR','229':'MT','230':'FI','231':'FO',
+  '232':'GB','233':'GB','234':'GB','235':'GB','236':'GI','237':'GR','238':'HR',
+  '239':'GR','240':'GR','241':'GR','242':'MA','243':'HU','244':'NL','245':'NL',
+  '246':'NL','247':'IT','248':'MT','249':'MT','250':'IE','251':'IS','252':'LI',
+  '253':'LU','254':'MC','255':'PT','256':'MT','257':'NO','258':'NO','259':'NO',
+  '261':'PL','262':'ME','263':'PT','264':'RO','265':'SE','266':'SE','267':'SK',
+  '268':'SM','269':'CH','270':'CZ','271':'TR','272':'UA','273':'RU','274':'MK',
+  '275':'LV','276':'EE','277':'LT','278':'SI','279':'RS',
+  '303':'US','338':'US','366':'US','367':'US','368':'US','369':'US',
+  '311':'BS','316':'CA','319':'KY','338':'US',
+  '412':'CN','413':'CN','414':'CN',
+  '431':'JP','432':'JP','433':'JP',
+  '440':'KR','441':'KR',
+  '477':'HK','478':'HK',
+  '525':'ID','533':'MY','536':'MP','538':'MH',
+  '542':'NZ','503':'AU','506':'MM',
+  '547':'PF','559':'WS','563':'SG','564':'SG','565':'SG','566':'SG',
+  '574':'VN','576':'VN',
+  '710':'BR','720':'BO','725':'CL','730':'CO','735':'EC','740':'FK',
+  '745':'GF','750':'GY','760':'PY','765':'PE','770':'SR','775':'UY','780':'VE',
+};
+function mmsiToFlag(mmsi){
+  const s=String(mmsi||'');
+  const mid=s.slice(0,3);
+  const countryCode=MID_TABLE[mid]||MID_TABLE[s.slice(0,2)]||null;
+  const flags={'AL':'🇦🇱','AD':'🇦🇩','AT':'🇦🇹','PT':'🇵🇹','BE':'🇧🇪','BY':'🇧🇾','BG':'🇧🇬','VA':'🇻🇦',
+    'CY':'🇨🇾','DE':'🇩🇪','GE':'🇬🇪','MD':'🇲🇩','MT':'🇲🇹','AM':'🇦🇲','DK':'🇩🇰','ES':'🇪🇸','FR':'🇫🇷',
+    'FI':'🇫🇮','FO':'🇫🇴','GB':'🇬🇧','GI':'🇬🇮','GR':'🇬🇷','HR':'🇭🇷','MA':'🇲🇦','HU':'🇭🇺','NL':'🇳🇱',
+    'IT':'🇮🇹','IE':'🇮🇪','IS':'🇮🇸','LI':'🇱🇮','LU':'🇱🇺','MC':'🇲🇨','NO':'🇳🇴','PL':'🇵🇱','ME':'🇲🇪',
+    'RO':'🇷🇴','SE':'🇸🇪','SK':'🇸🇰','SM':'🇸🇲','CH':'🇨🇭','CZ':'🇨🇿','TR':'🇹🇷','UA':'🇺🇦','RU':'🇷🇺',
+    'MK':'🇲🇰','LV':'🇱🇻','EE':'🇪🇪','LT':'🇱🇹','SI':'🇸🇮','RS':'🇷🇸','US':'🇺🇸','CA':'🇨🇦','BS':'🇧🇸',
+    'KY':'🇰🇾','CN':'🇨🇳','JP':'🇯🇵','KR':'🇰🇷','HK':'🇭🇰','ID':'🇮🇩','MY':'🇲🇾','MH':'🇲🇭','NZ':'🇳🇿',
+    'AU':'🇦🇺','SG':'🇸🇬','VN':'🇻🇳','BR':'🇧🇷','CL':'🇨🇱','CO':'🇨🇴'};
+  return countryCode ? (flags[countryCode]||'🏴') : '🏴';
+}
+
+/* ═══ LOCODE → COORDS (major ports for sea route line) ══════════ */
+const PORT_COORDS = {
+  'NLRTM':[51.9,4.48],'DEHAM':[53.55,9.97],'GBSOU':[50.9,-1.4],'GBFXT':[51.95,1.33],
+  'BEANR':[51.23,4.40],'FRHAV':[49.49,0.11],'FRBRE':[48.39,-4.49],'FRMAR':[43.3,5.37],
+  'DKAAR':[56.15,10.22],'DKCPH':[55.68,12.57],'DKFRE':[55.56,9.75],
+  'SEGOT':[57.70,11.97],'SEMMA':[55.60,13.0],'SESOE':[55.57,12.98],
+  'NOSVG':[58.97,5.73],'NOBGO':[60.39,5.33],'NOOSL':[59.91,10.73],
+  'FIHEL':[60.17,24.98],'FIHOU':[65.02,25.47],
+  'PLGDY':[54.52,18.55],'PLSZZ':[53.42,14.55],
+  'ESSDR':[40.42,-3.68],'ESBCN':[41.37,2.18],'ESVLC':[39.46,-0.33],
+  'ITGEN':[44.41,8.93],'ITNAP':[40.84,14.27],'ITMIL':[45.46,9.19],
+  'GRPIR':[37.94,23.65],'GRSAL':[40.63,22.96],
+  'TRISK':[41.02,29.0],'TRMER':[36.79,34.64],
+  'CNSHA':[31.23,121.47],'CNNGB':[29.87,122.0],'CNQIN':[36.07,120.38],
+  'SGSIN':[1.28,103.85],'MYPKG':[3.15,101.7],'JPOSA':[34.65,135.52],
+  'JPYOK':[35.45,139.65],'KRBSN':[35.1,129.05],'KRINC':[37.45,126.63],
+  'SAJUB':[21.5,39.2],'SADMM':[24.5,39.3],'CNMOH':[22.2,113.5],
+  'USNFK':[36.95,-76.3],'USNYK':[40.7,-74.0],'USLAX':[33.74,-118.27],
+  'GBLON':[51.5,-0.12],'BRSSZ':[23.97,-46.33],'AUMEL':[-37.82,144.97],
+  'HELHKI':[60.17,24.98],'KIELL':[54.33,10.13],'PATROL':[0,0],
+};
+function getPortCoords(dest){ return PORT_COORDS[dest]||null; }
+
+/* ═══ SEA ROUTE LINE ════════════════════════════════════════════ */
+let seaRouteLayer=null;
+function clearSeaRoute(){if(seaRouteLayer){map.removeLayer(seaRouteLayer);seaRouteLayer=null;}}
+function drawSeaRoute(v){
+  clearSeaRoute();
+  if(!v||!v.lat||!v.lng) return;
+  const origin=[v.lat,v.lng];
+  const destKey=(v.dest||'').trim().toUpperCase().replace(/\s+/g,'');
+  const destCoords=getPortCoords(destKey);
+  seaRouteLayer=L.layerGroup();
+  const color=VESSEL_CAT_COLOR[classifyVessel(v.typeCode||0).cat]||'#4fa8e8';
+  if(destCoords&&destCoords[0]!==0){
+    L.polyline([origin,destCoords],{color,weight:2,opacity:0.65,dashArray:'6,5'}).addTo(seaRouteLayer);
+    L.circleMarker(origin,{radius:5,color,fillColor:color,fillOpacity:1,weight:2})
+      .bindTooltip(`<b>🚢 Current position</b>`,{direction:'top'}).addTo(seaRouteLayer);
+    L.circleMarker(destCoords,{radius:6,color:'#7dd460',fillColor:'#7dd460',fillOpacity:1,weight:2})
+      .bindTooltip(`<b>⚓ ${v.dest}</b><br>Planned destination`,{direction:'top'}).addTo(seaRouteLayer);
+  } else {
+    const cog=(v.cog||0)*Math.PI/180;
+    const dist=100/60;
+    const endLat=v.lat+dist*Math.cos(cog);
+    const endLng=v.lng+dist*Math.sin(cog)/Math.cos(v.lat*Math.PI/180);
+    L.polyline([origin,[endLat,endLng]],{color,weight:1.5,opacity:0.4,dashArray:'4,6'}).addTo(seaRouteLayer);
+  }
+  seaRouteLayer.addTo(map);
+}
+
+/* ═══ LAND ROUTE LINE (bearing projection) ═════════════════════ */
+let landRouteLayer=null;
+function clearLandRoute(){if(landRouteLayer){map.removeLayer(landRouteLayer);landRouteLayer=null;}}
+function drawLandRoute(v){
+  clearLandRoute();
+  if(!v||!v.lat||!v.lng) return;
+  const ti=landTypeInfo(v.routeType||3);
+  const bearing=(v.bearing||0)*Math.PI/180;
+  const speedKm=v.speed||20;
+  const projDeg=Math.min(0.3,(speedKm/3600)*300/111);
+  const endLat=v.lat+projDeg*Math.cos(bearing);
+  const endLng=v.lng+projDeg*Math.sin(bearing)/Math.cos(v.lat*Math.PI/180);
+  landRouteLayer=L.layerGroup();
+  L.polyline([[v.lat,v.lng],[endLat,endLng]],{color:ti.color,weight:2,opacity:0.5,dashArray:'5,4'}).addTo(landRouteLayer);
+  landRouteLayer.addTo(map);
 }
 
 /* ═══ ENRICHMENT ═══════════════════════════════════════════════ */
@@ -1518,6 +1638,46 @@ function locateMe(){
   );
 }
 
+/* ═══ LOCATION SEARCH (Nominatim) ══════════════════════════════ */
+let _locSearchTimer=null;
+function toggleLocSearch(){
+  const bar=document.getElementById('locsearch-bar');
+  const visible=bar.style.display!=='none';
+  bar.style.display=visible?'none':'block';
+  if(!visible){
+    document.getElementById('locsearch-input').focus();
+    document.getElementById('locsearch-results').innerHTML='';
+  }
+}
+function onLocSearchInput(){
+  clearTimeout(_locSearchTimer);
+  _locSearchTimer=setTimeout(doLocSearch,400);
+}
+async function doLocSearch(){
+  const q=document.getElementById('locsearch-input').value.trim();
+  const res=document.getElementById('locsearch-results');
+  if(q.length<2){res.innerHTML='';return;}
+  res.innerHTML=`<div style="color:#6b6e8a;font-size:11px;padding:4px">Searching…</div>`;
+  try{
+    const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=0`;
+    const r=await fetch(url,{headers:{'Accept-Language':'en'}});
+    const data=await r.json();
+    if(!data.length){res.innerHTML=`<div style="color:#6b6e8a;font-size:11px;padding:4px">No results found</div>`;return;}
+    res.innerHTML=data.map(p=>`
+      <div onclick="flyToNominatim(${p.lat},${p.lon},'${p.display_name.replace(/'/g,"&#39;")}')"
+        style="padding:5px 6px;border-radius:6px;cursor:pointer;font-size:11px;color:#c8cce8;border-bottom:1px solid #1e2130"
+        onmouseover="this.style.background='#1a1d2e'" onmouseout="this.style.background=''">
+        📍 ${p.display_name.length>60?p.display_name.slice(0,60)+'…':p.display_name}
+      </div>`).join('');
+  }catch(e){res.innerHTML=`<div style="color:#e85858;font-size:11px;padding:4px">Search failed</div>`;}
+}
+function flyToNominatim(lat,lon,name){
+  map.flyTo([+lat,+lon],10,{duration:1.2,easeLinearity:.5});
+  setStatus('ok',`→ ${name.split(',').slice(0,2).join(',')}`);
+  document.getElementById('locsearch-bar').style.display='none';
+  document.getElementById('locsearch-input').value='';
+}
+
 /* ═══ DOMAIN SWITCHER ════════════════════════════════════════ */
 function setDomain(domain, el){
   if(activeDomain === domain) return;
@@ -1839,11 +1999,13 @@ function selectVessel(mmsi){
   const v=vesselMap[mmsi]; if(!v)return;
   map.flyTo([v.lat,v.lng],8,{duration:1.0,easeLinearity:.5});
   renderVesselDetail(v);
+  drawSeaRoute(v);
 }
 
 function deselectVessel(){
   selected=null;
   document.getElementById('detail').classList.remove('on');
+  clearSeaRoute();
   document.getElementById('fab').className='';
   Object.keys(vesselMarkers).forEach(m=>{
     const v=vesselMap[m];
@@ -1861,42 +2023,70 @@ function renderVesselDetail(v){
   const color  = VESSEL_CAT_COLOR[tinfo.cat]||'#6b6e8a';
   const isDistress = v.navstat===14;
   const isAground  = v.navstat===6;
+  const flag = mmsiToFlag(v.mmsi);
+  const mmsiCountry = (() => {
+    const mid=String(v.mmsi||'').slice(0,3);
+    const codes={'201':'Albania','202':'Andorra','203':'Austria','205':'Belgium','206':'Belarus',
+      'DE':'Germany','211':'Germany','218':'Germany','219':'Denmark','220':'Denmark',
+      'FR':'France','227':'France','228':'France','232':'United Kingdom','233':'United Kingdom',
+      '234':'United Kingdom','235':'United Kingdom','236':'Gibraltar','237':'Greece',
+      '238':'Croatia','244':'Netherlands','245':'Netherlands','246':'Netherlands',
+      '247':'Italy','250':'Ireland','257':'Norway','258':'Norway','259':'Norway',
+      '261':'Poland','265':'Sweden','266':'Sweden','267':'Sweden','268':'Montenegro',
+      '269':'Switzerland','270':'Czechia','271':'Turkey','272':'Ukraine','273':'Russia',
+      '275':'Latvia','276':'Estonia','277':'Lithuania','303':'USA','338':'USA',
+      '366':'USA','412':'China','413':'China','431':'Japan','432':'Japan','440':'South Korea',
+      '477':'Hong Kong','525':'Indonesia','533':'Malaysia','563':'Singapore','710':'Brazil',
+    };
+    return codes[mid]||'';
+  })();
 
   let html='';
 
-  // Status
   if(isDistress)
     html+=`<div style="background:#200404;border:1px solid #a01010;border-radius:8px;padding:4px 10px;font-size:11px;color:#ff4040;font-weight:600;margin-bottom:8px;animation:pulse .8s infinite">🚨 SART / MOB / EPIRB ACTIVE — Distress signal</div>`;
   else if(isAground)
     html+=`<div style="background:#201000;border:1px solid #a04010;border-radius:8px;padding:4px 10px;font-size:11px;color:#e8a040;font-weight:600;margin-bottom:8px">⚠ VESSEL AGROUND</div>`;
 
-  // Header
   html+=`<div class="d-header">
     <div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span class="d-callsign">${v.name||v.mmsi}</span>
+        <span style="font-size:20px">${flag}</span>
+        <span class="d-callsign">${v.name&&v.name!=='—'?v.name:'MMSI '+v.mmsi}</span>
         <span style="background:${color}22;border:1px solid ${color}66;border-radius:8px;padding:3px 10px;font-size:11px;color:${color}">${tinfo.icon} ${tinfo.label}</span>
       </div>
-      <div class="d-subtitle">MMSI ${v.mmsi}${v.callsign&&v.callsign!=='—'?' · '+v.callsign:''}</div>
+      <div class="d-subtitle">MMSI ${v.mmsi}${v.callsign&&v.callsign!=='—'?' · '+v.callsign:''} ${mmsiCountry?'· '+mmsiCountry:''}</div>
     </div>
     <button class="d-close" onclick="deselectVessel()">✕</button>
   </div>`;
 
-  // Voyage info
-  if(v.dest&&v.dest!=='—'&&v.dest!=='')
+  if(v.dest&&v.dest!=='—'&&v.dest!==''){
+    const destCoords=getPortCoords(v.dest.trim().toUpperCase());
+    const routeNote=destCoords?`<span style="color:#4fa8e8;font-size:10px"> · route line drawn on map</span>`:``;
     html+=`<div style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:7px;padding:6px 10px;font-size:12px;color:#7dd460;margin-bottom:8px">
-      ⚓ Destination: <b>${v.dest}</b>
+      ⚓ Destination: <b>${v.dest}</b>${routeNote}
     </div>`;
+  }
 
-  // Stats grid
+  const sogFmt=`${v.sog||0} <span class="d-stat-unit">knots</span>${(v.sog||0)>0?' ('+Math.round((v.sog||0)*1.852)+' km/h)':''}`;
   html+=`<div class="d-stats">
-    <div class="d-stat"><div class="d-stat-label">Speed over ground</div><div class="d-stat-value">${v.sog||0} <span class="d-stat-unit">knots</span></div></div>
+    <div class="d-stat"><div class="d-stat-label">Speed over ground</div><div class="d-stat-value">${sogFmt}</div></div>
     <div class="d-stat"><div class="d-stat-label">Course</div><div class="d-stat-value">${Math.round(v.cog||0)}°</div></div>
     <div class="d-stat"><div class="d-stat-label">Heading</div><div class="d-stat-value">${v.hdg?Math.round(v.hdg)+'°':'—'}</div></div>
     <div class="d-stat"><div class="d-stat-label">Navigation status</div><div class="d-stat-value" style="font-size:11px">${navlbl}</div></div>
     <div class="d-stat"><div class="d-stat-label">Draught</div><div class="d-stat-value">${v.draught?v.draught+' m':'—'}</div></div>
-    <div class="d-stat"><div class="d-stat-label">IMO number</div><div class="d-stat-value mono">${v.imo||'—'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">IMO number</div><div class="d-stat-value mono">${v.imo&&v.imo!==0?v.imo:'—'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Callsign</div><div class="d-stat-value mono">${v.callsign&&v.callsign!=='—'?v.callsign:'—'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Flag state</div><div class="d-stat-value">${flag} ${mmsiCountry||'Unknown'}</div></div>
+    <div class="d-stat"><div class="d-stat-label">Vessel type code</div><div class="d-stat-value mono">${v.typeCode||'—'}</div></div>
   </div>`;
+
+  if((!v.typeCode||v.typeCode===0) && v.name && v.name!=='—'){
+    html+=`<div style="font-size:10px;color:#6b6e8a;margin-top:5px;padding:5px 8px;background:#0d0f18;border-radius:6px;border:1px solid #1e2130">
+      ℹ AIS type code not broadcast — vessel transmitting minimal position data only.
+      Name: <b>${v.name}</b> · MMSI country: ${mmsiCountry||'unknown'}
+    </div>`;
+  }
 
   html+=`<div style="font-size:10px;color:#3a3d52;margin-top:6px">Live AIS via aisstream.io · Cargo manifest not public · Historical data not available in free tier</div>`;
 
@@ -2268,8 +2458,9 @@ async function fetchLandVehicles(){
     renderLand();
     document.getElementById('pill').textContent=Object.keys(landMap).length.toLocaleString()+' vehicles';
     const _rc=LAND_COUNTRY_CONFIG[landCountry];
-    setStatus('err',`${_rc?.flag||''} ${_rc?.regUrl?'API key required — register free at '+_rc.regUrl.replace('https://',''):'Live feed unavailable'} — showing DEMO DATA`);
-    document.getElementById('srcbadge').textContent=landCountry+' · demo';
+    const _noData = (_rc?.status==='active') ? 'no data received but expected' : (_rc?.regUrl ? `no data received — free API key at ${_rc?.regUrl.replace('https://','').split('/')[0]}` : 'no data available (no open feed exists)');
+    setStatus('err',`${_rc?.flag||''} ${_rc?.name||landCountry}: ${_noData}`);
+    document.getElementById('srcbadge').textContent=landCountry+' · no data';
   }
 }
 
@@ -2319,10 +2510,12 @@ function selectLandVehicle(id){
   const v=landMap[id]; if(!v)return;
   map.flyTo([v.lat,v.lng],13,{duration:0.9,easeLinearity:.5});
   renderLandDetail(v);
+  drawLandRoute(v);
 }
 function deselectLand(){
   selected=null;
   document.getElementById('detail').classList.remove('on');
+  clearLandRoute();
   document.getElementById('fab').className='';
   renderLand();
 }
@@ -3147,7 +3340,7 @@ function hideLandCoverage(){
 ════════════════════════════════════════════════════════════════ */
 const COV_CONTENT = {
   air: {
-    icon:'✈', title:'Air traffic coverage',
+    icon:'✈', title:'Traffic Coverage',
     rows:[
       {color:'#7dd460', text:'<b>Full coverage</b> — Dense ADS-B ground station network. Aircraft update every 5–15 seconds. Covers Europe, North America, Australia, East/South Asia, Middle East, Brazil, South Africa.'},
       {color:'#e8a040', text:'<b>Partial coverage</b> — Some ground stations, occasional gaps. Includes Central Asia, West Africa, Argentina, western Russia, Arctic fringes.'},
@@ -3156,7 +3349,7 @@ const COV_CONTENT = {
     note:'<b>Why some aircraft are missing:</b> Military aircraft are often ADS-B-exempt and fly without transponders. Many private jets use Privacy ICAO Address (PIA) — their hex codes rotate to prevent tracking. Aircraft below 10,000 ft in uncontrolled airspace may also skip ADS-B.\n\n<span class="cv-src">Sources: adsb.lol · adsb.one · airplanes.live · adsb.fi</span>',
   },
   sea: {
-    icon:'⚓', title:'Maritime AIS coverage',
+    icon:'⚓', title:'Traffic Coverage',
     rows:[
       {color:'#4fa8e8', text:'<b>Terrestrial AIS</b> — Dense shore-based receiver network. Vessels update every 2–10 seconds depending on speed. Covers all major ports and coastal areas worldwide: Europe, US coasts, East/SE Asia, Persian Gulf, Red Sea, Caribbean, Australia, Brazil, South Africa.'},
       {color:'#e8a040', text:'<b>Open ocean shipping lanes</b> — Sparse or no terrestrial receivers. Some data received via satellite AIS (not available in free tier). Ships are still broadcasting — just no receivers to hear them.'},
@@ -3165,7 +3358,7 @@ const COV_CONTENT = {
     note:'<b>Why fewer ships than expected:</b> Live data accumulates via WebSocket — the map fills up over 1–2 minutes as AIS broadcasts arrive. Only vessels within your current viewport are subscribed. Pan to a port area to see dense traffic.\n\nAIS is mandatory for vessels over 300 GT on international voyages. Smaller craft, naval vessels, and fishing boats under 15m may not transmit.\n\n<span class="cv-src">Source: aisstream.io · Free WebSocket AIS stream</span>',
   },
   land: {
-    icon:'🚂', title:'Land transit coverage',
+    icon:'🚂', title:'Traffic Coverage',
     rows:[
       {color:'#00e8c8', text:'<b>Live data available</b> — GTFS Realtime vehicle positions feed active. Bus, tram, metro, train positions updated every 2–15 seconds. Covers: Sweden, Norway, Finland, Denmark, Germany, Netherlands, Switzerland, Austria, Belgium, Ireland.'},
       {color:'#e8a040', text:'<b>Partial coverage</b> — Some operators only (e.g. France = Paris region only, Germany = Berlin/Brandenburg only). National coverage varies by operator participation.'},
@@ -3176,7 +3369,7 @@ const COV_CONTENT = {
 };
 
 /* ── Coverage panel state (persists across domain switches) ── */
-let covPanelMinimized = false;
+let covPanelMinimized = true;
 
 function showCoveragePanel(domain){
   const panel = document.getElementById('cov-panel');
