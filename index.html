@@ -297,7 +297,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v2.0.0</span></div>
+    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v2.1.0</span></div>
     <div id="domain-tabs" style="display:flex;gap:2px;flex-shrink:0">
       <button class="dtab on" id="tab-air" onclick="setDomain('air',this)" title="Air traffic">✈ Air</button>
       <button class="dtab"    id="tab-sea" onclick="setDomain('sea',this)" title="Maritime vessels">⚓ Sea</button>
@@ -309,6 +309,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button id="locbtn" onclick="locateMe()" title="Locate me (click) · Search location (long press)">📍</button>
     <button id="locsearchbtn" onclick="toggleLocSearch()" title="Search location" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;flex-shrink:0;transition:color .15s">🔍</button>
     <button id="logbtn" onclick="toggleLog()" title="Toggle debug log">📋 Log</button>
+    <div id="overlay-btns" style="display:flex;gap:4px;flex-shrink:0">
+      <button id="wxbtn" onclick="toggleWeather()" title="Weather radar (RainViewer)" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;transition:color .15s,background .15s">🌧 Wx</button>
+      <button id="notambtn" onclick="toggleNotam()" title="Aviation alerts (SIGMETs/AIRMETs)" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;transition:color .15s,background .15s">⚠ NOTAM</button>
+      <button id="alertbtn" onclick="toggleWatchPanel()" title="Watch list — pin aircraft/vessels/vehicles" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1a1d2e;color:#6b6e8a;border:1px solid #232636;cursor:pointer;transition:color .15s,background .15s">🔔 Watch</button>
+    </div>
+  </div>
+  <!-- Watch list panel -->
+  <div id="watch-panel" style="display:none;position:absolute;top:50px;right:12px;z-index:2002;background:#141720;border:1px solid #2a2e42;border-radius:10px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,.6);width:280px;max-width:92vw">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="color:#e0e2ee;font-size:13px;font-weight:600">🔔 Watch List</span>
+      <button onclick="toggleWatchPanel()" style="background:none;border:none;color:#6b6e8a;cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div style="font-size:11px;color:#6b6e8a;margin-bottom:8px">Select any item on the map and click "Watch" to track it.</div>
+    <div id="watch-list-items" style="max-height:220px;overflow-y:auto"></div>
   </div>
   <!-- Location search overlay -->
   <div id="locsearch-bar" style="display:none;position:absolute;top:50px;left:50%;transform:translateX(-50%);z-index:2000;background:#141720;border:1px solid #2a2e42;border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.6);width:360px;max-width:95vw">
@@ -411,7 +425,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 /* ═══ INTEL DB ═════════════════════════════════════════════════ */
 const INTEL_DB = {
   'ae040e':{agency:'USAF RC-135',country:'USA',note:'SIGINT/ELINT platform'},
@@ -730,7 +744,7 @@ function planeIcon(hdg,color,sz,op){
   const s=sz||20;
   return L.divIcon({
     html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 32 32"
-      style="transform:rotate(${hdg||0}deg);opacity:${op||1};display:block;overflow:visible">
+      style="transform:rotate(${hdg||0}deg);transform-origin:50% 50%;opacity:${op||1};display:block;overflow:visible">
       <g fill="${color}" stroke="#0a0c14" stroke-width="1.3" stroke-linejoin="round">
         <ellipse cx="16" cy="16" rx="2.2" ry="9"/>
         <polygon points="16,13 4,22 8,22 16,17 24,22 28,22"/>
@@ -1033,17 +1047,14 @@ function drawRoute(f,route){
 /* ── VESSEL ICON ─────────────────────────────────────────────── */
 function vesselIcon(hdg, color, sz, op){
   const s = sz||18;
-  // Top-down ship silhouette: pointed bow (top), wider stern (bottom)
   return L.divIcon({
-    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 32 40"
-      style="transform:rotate(${hdg||0}deg);opacity:${op||1};display:block;overflow:visible">
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 32 32"
+      style="transform:rotate(${hdg||0}deg);transform-origin:50% 50%;opacity:${op||1};display:block;overflow:visible">
       <g fill="${color}" stroke="#0a0c14" stroke-width="1.3" stroke-linejoin="round">
-        <!-- Hull: pointed bow at top, wide stern at bottom -->
-        <path d="M16,2 L26,12 L24,36 L8,36 L6,12 Z"/>
-        <!-- Superstructure/bridge -->
-        <rect x="12" y="14" width="8" height="8" rx="1.5"/>
+        <path d="M16,2 L24,10 L22,28 L10,28 L8,10 Z"/>
+        <rect x="12" y="12" width="8" height="7" rx="1.5"/>
       </g></svg>`,
-    className:'', iconSize:[s,s], iconAnchor:[s/2, s*0.6]
+    className:'', iconSize:[s,s], iconAnchor:[s/2, s/2]
   });
 }
 
@@ -1280,7 +1291,10 @@ function renderDetail(f){
       </div>
       <div class="d-subtitle">${aircraftType}${manufacturer ? ' · ' + manufacturer : ''}</div>
     </div>
-    <button class="d-close" onclick="deselect()">✕</button>
+    <div style="display:flex;gap:5px">
+      <button onclick="addToWatch('air','${f.icao24||f.reg}','${(f.callsign||f.reg||f.icao24||'').replace(/'/g,'')}')" style="background:#1a2a1a;border:1px solid #2a4a2a;color:#7dd460;border-radius:7px;padding:3px 8px;cursor:pointer;font-size:11px">🔔</button>
+      <button class="d-close" onclick="deselect()">✕</button>
+    </div>
   </div>`;
 
   // ── Two-column: photo + identity fields ─────────────────────
@@ -1678,6 +1692,141 @@ function flyToNominatim(lat,lon,name){
   document.getElementById('locsearch-input').value='';
 }
 
+/* ═══ WEATHER OVERLAY (RainViewer — free, no key) ══════════════ */
+let wxLayer=null, wxActive=false, wxTimestamps=[];
+async function fetchRainViewerTimes(){
+  try{
+    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const d=await r.json();
+    const recent=d.radar?.past?.slice(-1)[0];
+    return recent?.time||null;
+  }catch(e){return null;}
+}
+async function toggleWeather(){
+  const btn=document.getElementById('wxbtn');
+  if(wxActive){
+    if(wxLayer){map.removeLayer(wxLayer);wxLayer=null;}
+    wxActive=false;
+    btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';
+    setStatus('ok','Weather overlay off');
+    return;
+  }
+  wxActive=true;
+  btn.style.background='#1a3a5a';btn.style.color='#4fa8e8';
+  setStatus('load','Loading weather radar…');
+  const ts=await fetchRainViewerTimes();
+  if(!ts){setStatus('err','Weather radar unavailable');wxActive=false;btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';return;}
+  wxLayer=L.tileLayer(
+    `https://tilecache.rainviewer.com/v2/radar/${ts}/256/{z}/{x}/{y}/2/1_1.png`,
+    {opacity:0.5,zIndex:500,attribution:'RainViewer'}
+  ).addTo(map);
+  setStatus('ok','Weather radar active — RainViewer');
+}
+
+/* ═══ NOTAM / SIGMET LAYER (Aviation Weather Center — free) ════ */
+let notamLayer=null, notamActive=false;
+async function toggleNotam(){
+  const btn=document.getElementById('notambtn');
+  if(notamActive){
+    if(notamLayer){map.removeLayer(notamLayer);notamLayer=null;}
+    notamActive=false;
+    btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';
+    setStatus('ok','Aviation alerts layer off');
+    return;
+  }
+  notamActive=true;
+  btn.style.background='#3a2a10';btn.style.color='#e8a040';
+  setStatus('load','Fetching SIGMETs/AIRMETs…');
+  try{
+    const url='https://aviationweather.gov/api/data/airsigmet?format=geojson&type=sigmet&level=100';
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const gj=await r.json();
+    notamLayer=L.layerGroup();
+    let count=0;
+    (gj.features||[]).forEach(f=>{
+      if(!f.geometry) return;
+      const props=f.properties||{};
+      const type=props.hazard||'SIGMET';
+      const color=type.includes('TURB')?'#e8a040':type.includes('ICE')?'#4fa8e8':type.includes('TS')?'#e85858':'#aa88ff';
+      try{
+        const layer=L.geoJSON(f,{
+          style:{color,fillColor:color,fillOpacity:0.12,weight:1.5,dashArray:'4,3'},
+          onEachFeature:(feat,lyr)=>{
+            const p=feat.properties||{};
+            lyr.bindTooltip(`<b>${p.hazard||'SIGMET'}</b><br>${p.rawAirSigmet||''}`.slice(0,120),{sticky:true});
+          }
+        });
+        layer.addTo(notamLayer);
+        count++;
+      }catch(e){}
+    });
+    notamLayer.addTo(map);
+    setStatus('ok',`${count} SIGMET/AIRMET zone${count!==1?'s':''} loaded`);
+    if(count===0) setStatus('ok','No active SIGMETs/AIRMETs in Europe right now');
+  }catch(e){
+    notamActive=false;notamLayer=null;
+    btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';
+    setStatus('err','SIGMET fetch failed: '+e.message);
+  }
+}
+
+/* ═══ WATCH LIST ════════════════════════════════════════════════ */
+let watchList=JSON.parse(localStorage.getItem('vw_watchlist')||'[]');
+function saveWatchList(){localStorage.setItem('vw_watchlist',JSON.stringify(watchList));}
+function toggleWatchPanel(){
+  const p=document.getElementById('watch-panel');
+  const visible=p.style.display!=='none';
+  p.style.display=visible?'none':'block';
+  if(!visible) renderWatchList();
+}
+function renderWatchList(){
+  const el=document.getElementById('watch-list-items');
+  if(!watchList.length){
+    el.innerHTML=`<div style="color:#3a3d52;font-size:11px;text-align:center;padding:10px">No items watched yet</div>`;
+    return;
+  }
+  el.innerHTML=watchList.map((w,i)=>`
+    <div id="witem_${i}" style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:7px;border-bottom:1px solid #1e2130">
+      <span style="font-size:14px">${w.domain==='air'?'✈':w.domain==='sea'?'⚓':'🚂'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:#c8cce8;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${w.name}</div>
+        <div style="font-size:10px;color:#6b6e8a">${w.id} · ${w.domain}</div>
+      </div>
+      <button onclick="removeWatch(${i})" style="background:none;border:none;color:#3a3d52;cursor:pointer;font-size:13px;flex-shrink:0" title="Remove">✕</button>
+    </div>`).join('');
+  const btn=document.getElementById('alertbtn');
+  btn.textContent=`🔔 Watch (${watchList.length})`;
+}
+function addToWatch(domain, id, name){
+  if(watchList.find(w=>w.id===String(id)&&w.domain===domain)){
+    setStatus('ok',`Already watching: ${name}`); return;
+  }
+  watchList.push({domain,id:String(id),name});
+  saveWatchList();
+  renderWatchList();
+  setStatus('ok',`Watching: ${name}`);
+  document.getElementById('alertbtn').textContent=`🔔 Watch (${watchList.length})`;
+}
+function removeWatch(i){
+  watchList.splice(i,1);
+  saveWatchList();
+  renderWatchList();
+  const btn=document.getElementById('alertbtn');
+  btn.textContent=watchList.length?`🔔 Watch (${watchList.length})`:'🔔 Watch';
+}
+function checkWatchList(){
+  watchList.forEach(w=>{
+    let found=false;
+    if(w.domain==='air'){const f=Object.values(acMap).find(a=>String(a.icao24)===w.id||a.callsign===w.id);if(f)found=true;}
+    else if(w.domain==='sea'){const v=Object.values(vesselMap).find(v=>String(v.mmsi)===w.id);if(v)found=true;}
+    else if(w.domain==='land'){const v=landMap[w.id];if(v)found=true;}
+    const el=document.getElementById('witem_'+watchList.indexOf(w));
+    if(el) el.style.background=found?'#0d1a0d':'';
+  });
+}
+setInterval(()=>{if(watchList.length)checkWatchList();},5000);
+
 /* ═══ DOMAIN SWITCHER ════════════════════════════════════════ */
 function setDomain(domain, el){
   if(activeDomain === domain) return;
@@ -2057,7 +2206,10 @@ function renderVesselDetail(v){
       </div>
       <div class="d-subtitle">MMSI ${v.mmsi}${v.callsign&&v.callsign!=='—'?' · '+v.callsign:''} ${mmsiCountry?'· '+mmsiCountry:''}</div>
     </div>
-    <button class="d-close" onclick="deselectVessel()">✕</button>
+      <div style="display:flex;gap:5px">
+        <button onclick="addToWatch('sea','${v.mmsi}','${(v.name||'MMSI '+v.mmsi).replace(/'/g,'')}')" style="background:#1a2a1a;border:1px solid #2a4a2a;color:#7dd460;border-radius:7px;padding:3px 8px;cursor:pointer;font-size:11px">🔔</button>
+        <button class="d-close" onclick="deselectVessel()">✕</button>
+      </div>
   </div>`;
 
   if(v.dest&&v.dest!=='—'&&v.dest!==''){
@@ -2159,7 +2311,7 @@ function landVehicleIcon(bearing, color, sz, op){
   const s = sz||16;
   return L.divIcon({
     html:`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24"
-      style="transform:rotate(${bearing||0}deg);opacity:${op||1};display:block;overflow:visible">
+      style="transform:rotate(${bearing||0}deg);transform-origin:50% 50%;opacity:${op||1};display:block;overflow:visible">
       <g fill="${color}" stroke="#0a0c14" stroke-width="1.2" stroke-linejoin="round">
         <polygon points="12,2 20,20 12,15 4,20"/>
       </g></svg>`,
@@ -2294,9 +2446,16 @@ async function fetchOperatorPositions(operator, overrideUrl){
       vlog('info', `GTFS-RT [${attempt.label}]: ${attempt.url.slice(0,80)}…`);
       const ctrl = new AbortController();
       const tid  = setTimeout(()=>ctrl.abort(), 10000);
+      const _lcfg2 = LAND_COUNTRY_CONFIG[operator];
+      const _authHeaders = {};
+      if(_lcfg2?.apiKey && attempt.label==='direct'){
+        const hName = _lcfg2.apiKeyHeader || 'apikey';
+        const hVal = (_lcfg2.apiKeyPrefix||'') + _lcfg2.apiKey;
+        _authHeaders[hName] = hVal;
+      }
       const res  = await fetch(attempt.url, {
         signal:  ctrl.signal,
-        headers: {'Accept': 'application/octet-stream, application/x-protobuf, */*'}
+        headers: {'Accept': 'application/octet-stream, application/x-protobuf, */*', ..._authHeaders}
       });
       clearTimeout(tid);
       if(!res.ok){ vlog('warn',`  HTTP ${res.status}`); continue; }
@@ -2532,7 +2691,10 @@ function renderLandDetail(v){
       </div>
       <div class="d-subtitle">${v.dest!=='—'?'Towards: '+v.dest:''}</div>
     </div>
-    <button class="d-close" onclick="deselectLand()">✕</button>
+    <div style="display:flex;gap:5px">
+      <button onclick="addToWatch('land','${v.id||v.vehicleId}','${(v.line||v.dest||v.id||'').replace(/'/g,'')}')" style="background:#1a2a1a;border:1px solid #2a4a2a;color:#7dd460;border-radius:7px;padding:3px 8px;cursor:pointer;font-size:11px">🔔</button>
+      <button class="d-close" onclick="deselectLand()">✕</button>
+    </div>
   </div>`;
   html+=`<div class="d-stats">
     <div class="d-stat"><div class="d-stat-label">Vehicle identifier</div><div class="d-stat-value mono" style="font-size:11px">${v.label||v.id}</div></div>
@@ -2635,7 +2797,8 @@ const LAND_COUNTRY_CONFIG = {
   },
 
   FR:{
-    name:'France', flag:'🇫🇷', status:'planned',
+    name:'France', flag:'🇫🇷', status:'active',
+    apiKey:'dEhKaAlYgQci5wNwYBxJMdcVNvHGEeWQ', apiKeyHeader:'apikey',
     regUrl:'https://prim.iledefrance-mobilites.fr',
     center:[46.5,2.5], zoom:6,
     bbox:[41.3,-5.2,51.1,9.6],
@@ -2647,16 +2810,13 @@ const LAND_COUNTRY_CONFIG = {
   },
 
   CH:{
-    name:'Switzerland', flag:'🇨🇭', status:'planned',
+    name:'Switzerland', flag:'🇨🇭', status:'active',
+    apiKey:'eyJvcmciOiI2NDA2NTFhNTIyZmEwNTAwMDEyOWJiZTEiLCJpZCI6IjFiNjdhNWFhOTg4OTRiZGY5OGI5NzcxZDBkZjhhMTg0IiwiaCI6Im11cm11cjEyOCJ9', apiKeyHeader:'Authorization', apiKeyPrefix:'Bearer ',
     regUrl:'https://opentransportdata.swiss',
     center:[46.8,8.2], zoom:8,
     bbox:[45.8,5.9,47.8,10.5],
     api:'gtfs_rt_protobuf',
-    // Open Transport Data Switzerland — free account, or use public feed
-    // Public GTFS-RT feed (no key for community feed)
-    url:'https://opentransportdata.swiss/en/cookbook/gtfs-rt/',
-    // Actual free endpoint (community, no key):
-    primaryUrl:'https://api.opentransportdata.swiss/gtfs-rt2020',
+    url:'https://api.opentransportdata.swiss/gtfs-rt2020',
     license:'varies', update_s:10,
     notes:'Open Transport Data Switzerland · Community feed · Token at opentransportdata.swiss',
   },
