@@ -1034,7 +1034,8 @@ function renderMap(){
     const keep=flightMap[hex]&&(visSet.has(hex)||(selected&&flightMap[hex]?.id===selected));
     if(!keep){map.removeLayer(markers[hex]);delete markers[hex];}
   });
-  document.getElementById('pill').textContent=vis.length.toLocaleString()+' aircraft';
+  const _total=allList().length;
+  document.getElementById('pill').textContent=(activeFilter!=='all'?vis.length.toLocaleString()+' / '+_total.toLocaleString():vis.length.toLocaleString())+' aircraft';
   document.getElementById('fab').className=selected?'on':'';
   const toRender=selected?[...vis,...allList().filter(f=>f.id===selected&&!visSet.has(f.hex))]:vis;
   toRender.forEach(f=>{
