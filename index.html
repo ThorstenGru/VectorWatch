@@ -1728,15 +1728,7 @@ function flyToNominatim(lat,lon,name){
 }
 
 /* ═══ WEATHER OVERLAY (RainViewer — free, no key) ══════════════ */
-let wxLayer=null, wxActive=false, wxTimestamps=[];
-async function fetchRainViewerTimes(){
-  try{
-    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    const d=await r.json();
-    const recent=d.radar?.past?.slice(-1)[0];
-    return recent?.time||null;
-  }catch(e){return null;}
-}
+let wxLayer=null, wxActive=false;
 async function toggleWeather(){
   const btn=document.getElementById('wxbtn');
   if(wxActive){
@@ -1749,13 +1741,22 @@ async function toggleWeather(){
   wxActive=true;
   btn.style.background='#1a3a5a';btn.style.color='#4fa8e8';
   setStatus('load','Loading weather radar…');
-  const ts=await fetchRainViewerTimes();
-  if(!ts){setStatus('err','Weather radar unavailable');wxActive=false;btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';return;}
-  wxLayer=L.tileLayer(
-    `https://tilecache.rainviewer.com/v2/radar/${ts}/256/{z}/{x}/{y}/2/1_1.png`,
-    {opacity:0.5,zIndex:500,attribution:'RainViewer'}
-  ).addTo(map);
-  setStatus('ok','Weather radar active — RainViewer');
+  try{
+    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const host=d.host||'https://tilecache.rainviewer.com';
+    const items=d.radar?.past||[];
+    if(!items.length) throw new Error('no radar frames');
+    const recent=items[items.length-1];
+    const tileUrl=`${host}${recent.path}/256/{z}/{x}/{y}/2/1_1.png`;
+    wxLayer=L.tileLayer(tileUrl,{opacity:0.5,zIndex:500,attribution:'© RainViewer'}).addTo(map);
+    setStatus('ok',`Weather radar active — ${new Date(recent.time*1000).toLocaleTimeString()}`);
+  }catch(e){
+    wxActive=false;wxLayer=null;
+    btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';
+    setStatus('err','Weather radar unavailable: '+e.message);
+  }
 }
 
 /* ═══ NOTAM / SIGMET LAYER (Aviation Weather Center — free) ════ */
@@ -1763,7 +1764,7 @@ let notamLayer=null, notamActive=false;
 async function toggleNotam(){
   const btn=document.getElementById('notambtn');
   if(notamActive){
-    if(notamLayer){map.removeLayer(notamLayer);notamLayer=null;}
+    if(notamLayer){notamLayer.clearLayers();map.removeLayer(notamLayer);notamLayer=null;}
     notamActive=false;
     btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';
     setStatus('ok','Aviation alerts layer off');
@@ -1773,32 +1774,36 @@ async function toggleNotam(){
   btn.style.background='#3a2a10';btn.style.color='#e8a040';
   setStatus('load','Fetching SIGMETs/AIRMETs…');
   try{
-    const url='https://aviationweather.gov/api/data/airsigmet?format=geojson&type=sigmet&level=100';
-    const r=await fetch(url);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const gj=await r.json();
+    // Correct AWC API: hazard= not type=, no level filter (that was removing everything)
+    const awcUrl='https://aviationweather.gov/api/data/airsigmet?format=geojson&hazard=SIGMET';
+    let r=await fetch(awcUrl).catch(()=>null);
+    if(!r||!r.ok) r=await fetch(PROXIES[0](awcUrl)).catch(()=>null);
+    if(!r||!r.ok) r=await fetch(PROXIES[1](awcUrl)).catch(()=>null);
+    if(!r||!r.ok) throw new Error('all sources failed');
+    const text=await r.text();
+    let gj;
+    try{ gj=JSON.parse(text); }catch(e){ throw new Error('invalid JSON from AWC'); }
     notamLayer=L.layerGroup();
     let count=0;
     (gj.features||[]).forEach(f=>{
       if(!f.geometry) return;
       const props=f.properties||{};
-      const type=props.hazard||'SIGMET';
-      const color=type.includes('TURB')?'#e8a040':type.includes('ICE')?'#4fa8e8':type.includes('TS')?'#e85858':'#aa88ff';
+      const hazard=(props.hazard||props.airSigmetType||'SIGMET').toString().toUpperCase();
+      const color=hazard.includes('TURB')?'#e8a040':hazard.includes('ICE')?'#4fa8e8':hazard.includes('TS')?'#e85858':'#aa88ff';
       try{
-        const layer=L.geoJSON(f,{
+        L.geoJSON(f,{
           style:{color,fillColor:color,fillOpacity:0.12,weight:1.5,dashArray:'4,3'},
-          onEachFeature:(feat,lyr)=>{
-            const p=feat.properties||{};
-            lyr.bindTooltip(`<b>${p.hazard||'SIGMET'}</b><br>${p.rawAirSigmet||''}`.slice(0,120),{sticky:true});
+          onEachFeature:(_f,lyr)=>{
+            const p=_f.properties||{};
+            const label=`<b>${p.hazard||p.airSigmetType||'SIGMET'}</b><br>${(p.rawAirSigmet||p.alphaChar||'').slice(0,140)}`;
+            lyr.bindTooltip(label,{sticky:true,maxWidth:260});
           }
-        });
-        layer.addTo(notamLayer);
+        }).addTo(notamLayer);
         count++;
       }catch(e){}
     });
     notamLayer.addTo(map);
-    setStatus('ok',`${count} SIGMET/AIRMET zone${count!==1?'s':''} loaded`);
-    if(count===0) setStatus('ok','No active SIGMETs/AIRMETs in Europe right now');
+    setStatus('ok',count?`${count} SIGMET/AIRMET zone${count!==1?'s':''} active`:'No active SIGMETs worldwide right now');
   }catch(e){
     notamActive=false;notamLayer=null;
     btn.style.background='#1a1d2e';btn.style.color='#6b6e8a';
