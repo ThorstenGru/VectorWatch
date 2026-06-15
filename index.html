@@ -297,7 +297,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v2.1.0</span></div>
+    <div id="logo">◈ <span>VectorWatch</span><span id="ver-badge">v2.2.0</span></div>
     <div id="domain-tabs" style="display:flex;gap:2px;flex-shrink:0">
       <button class="dtab on" id="tab-air" onclick="setDomain('air',this)" title="Air traffic">✈ Air</button>
       <button class="dtab"    id="tab-sea" onclick="setDomain('sea',this)" title="Maritime vessels">⚓ Sea</button>
@@ -360,7 +360,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="fb sf-sail"   onclick="setSeaFilter('sail',this)"><span class="fb-dot" style="background:#a0d0ff"></span>⛵ Sail / Pleasure</button>
     <button class="fb sf-tug"    onclick="setSeaFilter('towing',this)"><span class="fb-dot" style="background:#c8a060"></span>⚙ Tug / Service</button>
     <button class="fb sf-hs"     onclick="setSeaFilter('highspeed',this)"><span class="fb-dot" style="background:#e060e8"></span>💨 High-speed</button>
-    <button id="fb-offshore" onclick="toggleOffshore(this)" title="Hide inland/river vessels at wide zoom" style="margin-left:6px;border-color:#1e4a6a">🌊 Offshore only</button>
+    <button class="fb" id="fb-offshore" onclick="toggleOffshore(this)" title="Hide inland/river vessels at wide zoom" style="margin-left:6px;border-color:#1e4a6a">🌊 Offshore only</button>
   </div>
   <!-- LAND filters -->
   <div id="filterbar-land" class="filterbar" style="display:none">
@@ -426,7 +426,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 /* ═══ INTEL DB ═════════════════════════════════════════════════ */
 const INTEL_DB = {
   'ae040e':{agency:'USAF RC-135',country:'USA',note:'SIGINT/ELINT platform'},
@@ -1174,35 +1174,42 @@ function drawSeaRoute(v){
   seaRouteLayer=L.layerGroup();
   const color=VESSEL_CAT_COLOR[classifyVessel(v.typeCode||0).cat]||'#4fa8e8';
   if(destCoords&&destCoords[0]!==0){
-    L.polyline([origin,destCoords],{color,weight:2,opacity:0.65,dashArray:'6,5'}).addTo(seaRouteLayer);
-    L.circleMarker(origin,{radius:5,color,fillColor:color,fillOpacity:1,weight:2})
+    L.polyline([origin,destCoords],{color,weight:3,opacity:0.85,dashArray:'8,5'}).addTo(seaRouteLayer);
+    L.circleMarker(origin,{radius:6,color:'#fff',fillColor:color,fillOpacity:1,weight:2})
       .bindTooltip(`<b>🚢 Current position</b>`,{direction:'top'}).addTo(seaRouteLayer);
-    L.circleMarker(destCoords,{radius:6,color:'#7dd460',fillColor:'#7dd460',fillOpacity:1,weight:2})
+    L.circleMarker(destCoords,{radius:8,color:'#7dd460',fillColor:'#7dd460',fillOpacity:1,weight:2})
       .bindTooltip(`<b>⚓ ${v.dest}</b><br>Planned destination`,{direction:'top'}).addTo(seaRouteLayer);
   } else {
-    const cog=(v.cog||0)*Math.PI/180;
-    const dist=100/60;
-    const endLat=v.lat+dist*Math.cos(cog);
-    const endLng=v.lng+dist*Math.sin(cog)/Math.cos(v.lat*Math.PI/180);
-    L.polyline([origin,[endLat,endLng]],{color,weight:1.5,opacity:0.4,dashArray:'4,6'}).addTo(seaRouteLayer);
+    // COG projection ~100 nm ahead — nautical bearing: 0=N, 90=E
+    const cogRad=(v.cog||0)*Math.PI/180;
+    const dist=100/60; // 100 nm ≈ 1.67°
+    const endLat=v.lat+dist*Math.cos(cogRad);
+    const endLng=v.lng+dist*Math.sin(cogRad)/Math.cos(v.lat*Math.PI/180);
+    L.polyline([origin,[endLat,endLng]],{color,weight:2,opacity:0.7,dashArray:'5,6'}).addTo(seaRouteLayer);
+    L.circleMarker(origin,{radius:5,color:'#fff',fillColor:color,fillOpacity:1,weight:2})
+      .bindTooltip(`<b>🚢 Heading ${Math.round(v.cog||0)}°</b><br>COG projection — destination unknown`,{direction:'top'}).addTo(seaRouteLayer);
   }
   seaRouteLayer.addTo(map);
 }
 
-/* ═══ LAND ROUTE LINE (bearing projection) ═════════════════════ */
+/* ═══ LAND ROUTE LINE (bearing projection ~10 min ahead) ════════ */
 let landRouteLayer=null;
 function clearLandRoute(){if(landRouteLayer){map.removeLayer(landRouteLayer);landRouteLayer=null;}}
 function drawLandRoute(v){
   clearLandRoute();
   if(!v||!v.lat||!v.lng) return;
   const ti=landTypeInfo(v.routeType||3);
-  const bearing=(v.bearing||0)*Math.PI/180;
-  const speedKm=v.speed||20;
-  const projDeg=Math.min(0.3,(speedKm/3600)*300/111);
-  const endLat=v.lat+projDeg*Math.cos(bearing);
-  const endLng=v.lng+projDeg*Math.sin(bearing)/Math.cos(v.lat*Math.PI/180);
+  // Project 10 minutes ahead at current speed (min 5 km/h assumed)
+  const speedKm=Math.max(v.speed||5, 5);
+  const projKm=(speedKm/60)*10; // km in 10 min
+  const projDeg=Math.min(0.5, projKm/111);
+  const bearingRad=(v.bearing||0)*Math.PI/180;
+  const endLat=v.lat+projDeg*Math.cos(bearingRad);
+  const endLng=v.lng+projDeg*Math.sin(bearingRad)/Math.cos(v.lat*Math.PI/180);
   landRouteLayer=L.layerGroup();
-  L.polyline([[v.lat,v.lng],[endLat,endLng]],{color:ti.color,weight:2,opacity:0.5,dashArray:'5,4'}).addTo(landRouteLayer);
+  L.polyline([[v.lat,v.lng],[endLat,endLng]],{color:ti.color,weight:3,opacity:0.8,dashArray:'6,4'}).addTo(landRouteLayer);
+  L.circleMarker([v.lat,v.lng],{radius:5,color:'#fff',fillColor:ti.color,fillOpacity:1,weight:2})
+    .bindTooltip(`<b>${ti.icon} ${v.line!=='—'?v.line:v.id}</b><br>Bearing ${Math.round(v.bearing||0)}° · ${speedKm} km/h`,{direction:'top'}).addTo(landRouteLayer);
   landRouteLayer.addTo(map);
 }
 
@@ -1226,17 +1233,19 @@ async function enrichAircraft(hex,callsign){
   if(callsign&&callsign.trim()&&callsign!=='?'){
     try{
       const cs=callsign.trim().toUpperCase();
-      const rUrl=PROXIES[0]('https://api.adsbdb.com/v0/callsign/'+cs);
+      const _adbUrl='https://api.adsbdb.com/v0/callsign/'+cs;
       vlog('info','  adsbdb route for '+cs);
-      const rr=await fetch(rUrl);
-      if(rr.ok){
+      let rr=await fetch(_adbUrl).catch(()=>null);
+      if(!rr||!rr.ok) rr=await fetch(PROXIES[0](_adbUrl)).catch(()=>null);
+      if(!rr||!rr.ok) rr=await fetch(PROXIES[1](_adbUrl)).catch(()=>null);
+      if(rr&&rr.ok){
         const rj=await rr.json();
         const fr=rj?.response?.flightroute;
         if(fr&&fr.origin&&fr.destination){
           acCache[hex].route={origin:fr.origin,destination:fr.destination,midpoint:fr.midpoint||null,airline:fr.airline||null};
           vlog('ok',`  Route: ${fr.origin.icao_code} → ${fr.destination.icao_code}`);
         }else vlog('warn','  adsbdb: no route for '+cs);
-      }else vlog('warn','  adsbdb HTTP '+rr.status);
+      }else vlog('warn','  adsbdb: all sources failed');
     }catch(e){vlog('error','  adsbdb: '+e.message);}
   }
   acCache[hex]._done=true;
@@ -1327,7 +1336,7 @@ function renderDetail(f){
       <div class="d-subtitle">${aircraftType}${manufacturer ? ' · ' + manufacturer : ''}</div>
     </div>
     <div style="display:flex;gap:5px">
-      <button onclick="addToWatch('air','${f.icao24||f.reg}','${(f.callsign||f.reg||f.icao24||'').replace(/'/g,'')}')" style="background:#1a2a1a;border:1px solid #2a4a2a;color:#7dd460;border-radius:7px;padding:3px 8px;cursor:pointer;font-size:11px">🔔</button>
+      <button onclick="addToWatch('air','${f.hex||f.reg}','${(f.id||f.reg||f.hex||'').replace(/'/g,'')}')" style="background:#1a2a1a;border:1px solid #2a4a2a;color:#7dd460;border-radius:7px;padding:3px 8px;cursor:pointer;font-size:11px">🔔</button>
       <button class="d-close" onclick="deselect()">✕</button>
     </div>
   </div>`;
@@ -1858,7 +1867,7 @@ function removeWatch(i){
 function checkWatchList(){
   watchList.forEach(w=>{
     let found=false;
-    if(w.domain==='air'){const f=Object.values(acMap).find(a=>String(a.icao24)===w.id||a.callsign===w.id);if(f)found=true;}
+    if(w.domain==='air'){const f=Object.values(flightMap).find(a=>String(a.hex)===w.id||a.id===w.id);if(f)found=true;}
     else if(w.domain==='sea'){const v=Object.values(vesselMap).find(v=>String(v.mmsi)===w.id);if(v)found=true;}
     else if(w.domain==='land'){const v=landMap[w.id];if(v)found=true;}
     const el=document.getElementById('witem_'+watchList.indexOf(w));
@@ -1894,7 +1903,7 @@ function setDomain(domain, el){
   acCache={};
   vesselMarkers={}; vesselMap={};
   landMarkers={}; landMap={};
-  clearRoute();
+  clearRoute(); clearSeaRoute(); clearLandRoute();
 
   // ── 3. Reset UI ────────────────────────────────────────────
   activeDomain = domain;   // SET AFTER cleanup so guards don't fire prematurely
@@ -2492,10 +2501,11 @@ async function fetchOperatorPositions(operator, overrideUrl){
       const tid  = setTimeout(()=>ctrl.abort(), 10000);
       const _lcfg2 = LAND_COUNTRY_CONFIG[operator];
       const _authHeaders = {};
-      if(_lcfg2?.apiKey && attempt.label==='direct'){
-        const hName = _lcfg2.apiKeyHeader || 'apikey';
-        const hVal = (_lcfg2.apiKeyPrefix||'') + _lcfg2.apiKey;
-        _authHeaders[hName] = hVal;
+      if(attempt.label==='direct'){
+        if(_lcfg2?.apiKey){
+          _authHeaders[_lcfg2.apiKeyHeader||'apikey'] = (_lcfg2.apiKeyPrefix||'')+_lcfg2.apiKey;
+        }
+        if(_lcfg2?.proxyHeaders) Object.assign(_authHeaders, _lcfg2.proxyHeaders);
       }
       const res  = await fetch(attempt.url, {
         signal:  ctrl.signal,
@@ -2525,7 +2535,7 @@ async function fetchOperatorPositions(operator, overrideUrl){
       }
       vlog('warn', `  Decoded 0 vehicles — feed may be empty or wrong format`);
     }catch(e){
-      vlog('warn', `  ${attempt.label}: ${e.name==='AbortError'?'timeout (15s)':e.message}`);
+      vlog('warn', `  ${attempt.label}: ${e.name==='AbortError'?'timeout (10s)':e.message}`);
     }
   }
   vlog('error', 'All fetch attempts failed — showing demo data');
