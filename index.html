@@ -661,6 +661,7 @@ let activeDomain='air'; // 'air' | 'sea' | 'land'
 let vesselMap={};  // MMSI → vessel object (sea domain)
 let vesselMarkers={};  // MMSI → Leaflet marker (sea domain)
 let aisSocket=null;  // WebSocket for aisstream.io
+let aisReconnectCount=0, aisReconnectTimer=null;
 let landMap={};      // vehicleId → land vehicle
 let landMarkers={};  // vehicleId → Leaflet marker
 let landTimer=null;  // poll interval
@@ -734,10 +735,10 @@ const PROXIES=[
   u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 const API_BASES=[
+  {name:'adsb.fi',        base:'https://opendata.adsb.fi/api'},  // open CORS — no proxy needed
   {name:'adsb.lol',       base:'https://api.adsb.lol'},
   {name:'adsb.one',       base:'https://api.adsb.one'},
   {name:'airplanes.live', base:'https://api.airplanes.live'},
-  {name:'adsb.fi',        base:'https://opendata.adsb.fi/api'},
 ];
 
 async function _rawFetch(url,label,ms){
@@ -757,9 +758,9 @@ async function probeApis(){
   const c=map.getCenter(),lat=c.lat.toFixed(2),lon=c.lng.toFixed(2);
   vlog('info',`Probing APIs lat=${lat} lon=${lon}`);
   for(const src of API_BASES){
-    const direct=`${src.base}/v2/lat/${lat}/lon/${lon}/dist/50`;
-    // Direct probe — 5s timeout (was 2s, too short for CDN cold start)
-    const d=await _rawFetch(direct,src.name+' direct',3000);
+    const direct=`${src.base}/v2/lat/${lat}/lon/${lon}/dist/${QUERY_NM}`;
+    // Direct probe uses same dist as tile fetches — validates full-size responses
+    const d=await _rawFetch(direct,src.name+' direct',5000);
     if(d!==null){workingApi={...src,useProxy:false};vlog('ok',`Working: ${src.name} direct`);return workingApi;}
     // Proxy attempts — 8s each
     for(let i=0;i<PROXIES.length;i++){
@@ -824,8 +825,13 @@ async function fetchViewport(manual){
     }
     const tiles=getViewportTiles();
     setStatus('load',`Fetching ${tiles.length} area(s)…`);
-    const results=await Promise.all(tiles.map(t=>_rawFetch(buildUrl(t.lat,t.lon,QUERY_NM),`${workingApi.name}[${t.lat},${t.lon}]`,6000)));
-    if(activeDomain !== 'air'){ vlog('warn','Domain switched during fetch — discarding results'); return; }
+    const results=[];
+    for(let _bi=0;_bi<tiles.length;_bi+=4){
+      const _batch=tiles.slice(_bi,_bi+4);
+      const _br=await Promise.all(_batch.map(t=>_rawFetch(buildUrl(t.lat,t.lon,QUERY_NM),`${workingApi.name}[${t.lat},${t.lon}]`,6000)));
+      if(activeDomain!=='air'){vlog('warn','Domain switched during fetch — discarding results');return;}
+      results.push(..._br);
+    }
     const seen=new Set(),allAc=[];let tileCount=0;
     results.forEach(j=>{if(!j)return;tileCount++;(j.ac||[]).forEach(a=>{if(a.hex&&!seen.has(a.hex)){seen.add(a.hex);allAc.push(a);}});});
     if(tileCount>0){
@@ -1604,6 +1610,7 @@ function startSeaStream(){
     aisSocket = new WebSocket('wss://stream.aisstream.io/v0/stream');
     aisSocket.onopen = () => {
       vlog('ok','AIS WebSocket connected');
+      aisReconnectCount=0;
       sendAISSubscription();
       setStatus('ok','AIS stream connected · '+new Date().toLocaleTimeString());
       document.getElementById('srcbadge').textContent='aisstream.io · live';
@@ -1630,8 +1637,15 @@ function startSeaStream(){
     aisSocket.onclose = () => {
       vlog('warn','AIS WebSocket closed');
       if(activeDomain==='sea'){
-        setStatus('err','AIS stream disconnected — showing demo data');
         if(Object.keys(vesselMap).length===0){ loadSeaDemo(); renderSea(); }
+        const MAX=5, delay=Math.min(30000, 3000*Math.pow(2,aisReconnectCount));
+        if(aisReconnectCount<MAX){
+          setStatus('err',`AIS disconnected — reconnecting in ${Math.round(delay/1000)}s (${aisReconnectCount+1}/${MAX})…`);
+          aisReconnectCount++;
+          aisReconnectTimer=setTimeout(()=>{ if(activeDomain==='sea') startSeaStream(); }, delay);
+        } else {
+          setStatus('err','AIS stream lost — showing demo data');
+        }
       }
     };
   } catch(e) {
@@ -1642,6 +1656,8 @@ function startSeaStream(){
 
 function stopSeaStream(){
   map.off('moveend.sea'); map.off('zoomend.sea');
+  if(aisReconnectTimer){ clearTimeout(aisReconnectTimer); aisReconnectTimer=null; }
+  aisReconnectCount=0;
   if(aisSocket){ aisSocket.close(); aisSocket=null; }
 }
 
@@ -2223,6 +2239,7 @@ async function fetchLandVehicles(){
     loadLandDemoForCountry(landCountry);
     if(Object.keys(landMap).length===0) loadLandDemo();
     renderLand();
+    document.getElementById('pill').textContent=Object.keys(landMap).length.toLocaleString()+' vehicles';
     const _rc=LAND_COUNTRY_CONFIG[landCountry];
     setStatus('err',`${_rc?.flag||''} ${_rc?.regUrl?'API key required — register free at '+_rc.regUrl.replace('https://',''):'Live feed unavailable'} — showing DEMO DATA`);
     document.getElementById('srcbadge').textContent=landCountry+' · demo';
@@ -2484,6 +2501,8 @@ function setLandCountry(code, el, skipFly){
   stopFinlandMQTT();
   Object.values(landMarkers).forEach(m=>map.removeLayer(m));
   landMarkers={}; landMap={};
+  document.getElementById('pill').textContent='— vehicles';
+  document.getElementById('srcbadge').textContent=code+' · loading';
 
   const cfg = LAND_COUNTRY_CONFIG[code];
   if(!skipFly) map.flyTo(cfg.center, cfg.zoom, {duration:1.0, easeLinearity:.5});
