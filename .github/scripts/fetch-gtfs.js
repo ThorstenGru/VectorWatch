@@ -48,7 +48,7 @@ message Position {
 }
 `;
 
-// Feeds — only open/free APIs (keys from env for others)
+// Feeds — open/free first, keyed ones skipped if secret not set
 const FEEDS = [
   {
     code: 'NO',
@@ -66,6 +66,11 @@ const FEEDS = [
     headers: {},
   },
   {
+    code: 'DE',
+    url: 'https://realtime.gtfs.de/realtime-free.pb',
+    headers: {},
+  },
+  {
     code: 'SE',
     url: `https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key=${process.env.SE_API_KEY||''}`,
     headers: {},
@@ -76,6 +81,12 @@ const FEEDS = [
     url: 'https://prim.iledefrance-mobilites.fr/marketplace/gtfs-rt/vehicle-positions.pb',
     headers: { 'apikey': process.env.FR_API_KEY||'' },
     requiresKey: 'FR_API_KEY',
+  },
+  {
+    code: 'CH',
+    url: 'https://api.opentransportdata.swiss/gtfs-rt2020',
+    headers: { 'Authorization': `Bearer ${process.env.CH_API_KEY||''}` },
+    requiresKey: 'CH_API_KEY',
   },
 ];
 
