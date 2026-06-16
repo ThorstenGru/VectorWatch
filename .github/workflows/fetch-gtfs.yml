@@ -1,0 +1,40 @@
+name: Fetch GTFS-RT Land Data
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes
+  workflow_dispatch:          # manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install protobufjs node-fetch@2
+        working-directory: .github/scripts
+
+      - name: Fetch and decode GTFS-RT feeds
+        run: node .github/scripts/fetch-gtfs.js
+        env:
+          SE_API_KEY: ${{ secrets.SE_GTFS_KEY }}
+          FR_API_KEY: ${{ secrets.FR_GTFS_KEY }}
+          CH_API_KEY: ${{ secrets.CH_GTFS_KEY }}
+          IE_API_KEY: ${{ secrets.IE_GTFS_KEY }}
+          DK_API_KEY: ${{ secrets.DK_GTFS_KEY }}
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/land/
+          git diff --staged --quiet || git commit -m "chore: gtfs-rt update $(date -u +%H:%MZ) [skip ci]"
+          git push
