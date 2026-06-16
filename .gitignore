@@ -1,0 +1,10 @@
+# Claude Code session data
+.claude/
+
+# Node dependencies (only used in GitHub Actions runner, not committed)
+node_modules/
+.github/scripts/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
