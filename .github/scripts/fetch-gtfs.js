@@ -92,29 +92,32 @@ const FEEDS = [
     url: 'https://gtfs.ovapi.nl/nl/vehiclePositions.pb',
     headers: {},
   },
+  // DE: DELFI free-tier only carries trip_updates; use VBB (Berlin/Brandenburg) for vehicle positions
   {
     code: 'DE',
-    url: 'https://realtime.gtfs.de/realtime-free.pb',
-    headers: {},
+    url: 'https://realtime.vbb.de/gtfs-rt/v2/vehicle-positions',
+    headers: { 'accept': 'application/x-google-protobuf' },
   },
   {
     code: 'SE',
     url: `https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key=${process.env.SE_API_KEY||''}`,
-    headers: {},
+    headers: { 'accept': 'application/x-google-protobuf' },
     requiresKey: 'SE_API_KEY',
   },
+  // FR: PRIM v2 endpoint (moved from /marketplace/gtfs-rt/ in 2024)
   {
     code: 'FR',
-    url: 'https://prim.iledefrance-mobilites.fr/marketplace/gtfs-rt/vehicle-positions',
-    headers: { 'apikey': process.env.FR_API_KEY||'', 'Accept': 'application/x-google-protobuf' },
+    url: 'https://prim.iledefrance-mobilites.fr/marketplace/v2/gtfs-realtime/VehiclePosition',
+    headers: { 'apikey': process.env.FR_API_KEY||'' },
     requiresKey: 'FR_API_KEY',
   },
+  // CH: opentransportdata.swiss vehicle positions endpoint
   {
     code: 'CH',
-    url: 'https://api.opentransportdata.swiss/gtfs-rt2020',
+    url: 'https://api.opentransportdata.swiss/gtfs-rt-fahrzeugpositionen/v1',
     headers: {
       'Authorization': `Bearer ${process.env.CH_API_KEY||''}`,
-      'Accept': 'application/octet-stream',
+      'accept': 'application/x-google-protobuf',
     },
     requiresKey: 'CH_API_KEY',
   },
@@ -129,6 +132,19 @@ async function maybeDecompress(buf) {
   }
   return buf;
 }
+
+// Patch protobufjs Reader to skip unknown wire types (6,7) and stray end-group (4)
+// instead of throwing — some feeds use proprietary proto2 extensions
+(function patchReader() {
+  const Reader = protobuf.Reader;
+  const orig = Reader.prototype.skipType;
+  Reader.prototype.skipType = function(wireType) {
+    if (wireType === 4) { return this; }          // stray end-group — skip gracefully
+    if (wireType === 6) { this.pos += 8; return this; }  // treat as fixed64
+    if (wireType === 7) { this.pos += 4; return this; }  // treat as fixed32
+    return orig.call(this, wireType);
+  };
+}());
 
 async function decodeFeed(feed) {
   if (feed.requiresKey && !process.env[feed.requiresKey]) {
@@ -154,7 +170,11 @@ async function decodeFeed(feed) {
     try {
       msg = FeedMessage.decode(new Uint8Array(buf));
     } catch (e) {
+      const hex = Array.from(buf.slice(0, 32)).map(b => b.toString(16).padStart(2,'0')).join(' ');
+      const txt = buf.slice(0, 64).toString('utf8').replace(/[^\x20-\x7e]/g, '.');
       console.warn(`[${feed.code}] Decode error: ${e.message}`);
+      console.warn(`[${feed.code}] First 32 bytes hex: ${hex}`);
+      console.warn(`[${feed.code}] First 64 bytes txt: ${txt}`);
       return null;
     }
 
