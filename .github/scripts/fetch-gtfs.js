@@ -104,8 +104,8 @@ async function maybeDecompress(buf) {
   return buf;
 }
 
-// Robust FeedMessage decode — if full decode fails, fall back to per-entity parsing
-// so that one malformed entity (or non-standard extension) doesn't lose all data.
+// Robust FeedMessage decode — if full decode fails, fall back to a per-entity
+// scanner that re-syncs one byte at a time past corrupted/extension regions.
 function robustDecode(root, buf) {
   const FeedMessage = root.lookupType('FeedMessage');
   const FeedEntity  = root.lookupType('FeedEntity');
@@ -114,26 +114,42 @@ function robustDecode(root, buf) {
     return FeedMessage.decode(new Uint8Array(buf));
   } catch (firstErr) {
     console.warn(`  Full decode failed (${firstErr.message}), attempting per-entity fallback…`);
+    const hex32 = Array.from(buf.slice(0, 32)).map(b => b.toString(16).padStart(2,'0')).join(' ');
+    console.warn(`  First 32 bytes: ${hex32}`);
     const entities = [];
     const r = protobuf.Reader.create(new Uint8Array(buf));
     try {
       while (r.pos < r.len) {
-        const tag = r.uint32();
+        let tag;
+        try { tag = r.uint32(); } catch (_) { break; }
         const fn = tag >>> 3, wt = tag & 7;
         if (fn === 2 && wt === 2) {
           // FeedEntity (field 2, length-delimited)
-          const len = r.uint32();
-          if (r.pos + len > r.len) break;
+          let len;
+          try { len = r.uint32(); } catch (_) { break; }
+          if (r.pos + len > r.len) {
+            // Bogus length — skip 1 byte and try to re-sync
+            r.pos -= (len > 0xFFFF ? 2 : 1);  // back up past the length varint
+            r.pos += 1;
+            continue;
+          }
           const entitySlice = buf.slice(r.pos, r.pos + len);
           try { entities.push(FeedEntity.decode(new Uint8Array(entitySlice))); } catch (_) {}
           r.pos += len;
+        } else if (wt === 2) {
+          // Other length-delimited field (FeedHeader, etc.) — skip safely
+          let len;
+          try { len = r.uint32(); } catch (_) { break; }
+          if (r.pos + len > r.len) { r.pos += 1; continue; }
+          r.pos += len;
         } else if (wt <= 5) {
-          r.skipType(wt);  // skip header / unknown fields
+          try { r.skipType(wt); } catch (_) { r.pos += 1; }
         } else {
-          break;  // truly unknown wire type in outer message — stop
+          // Unknown wire type (6/7/4) — advance 1 byte to re-sync
+          r.pos += 1;
         }
       }
-    } catch (_) { /* stop on any outer read error */ }
+    } catch (_) { /* stop on any unexpected error */ }
     console.warn(`  Per-entity fallback recovered ${entities.length} entities`);
     return { entity: entities };
   }
@@ -163,6 +179,8 @@ const FEEDS = [
     // VBB Berlin/Brandenburg — publicly accessible combined GTFS-RT feed
     url: 'https://production.gtfsrt.vbb.de/data',
     headers: {},
+    robustDecode: true,
+    logFirstBytes: true,  // print hex on decode failure for diagnosis
   },
   {
     code: 'SE',
