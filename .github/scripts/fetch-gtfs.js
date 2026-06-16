@@ -80,7 +80,72 @@ message Alert {
 }
 `;
 
-// Feeds — open/free first, keyed ones skipped if secret not set
+// Patch protobufjs Reader to skip unknown wire types gracefully.
+// Wire type 4 (end group): tag already consumed, nothing more to skip.
+// Wire types 6/7: undefined by spec; treat as 8/4 bytes respectively (best-effort).
+(function patchReader() {
+  const Reader = protobuf.Reader;
+  const orig = Reader.prototype.skipType;
+  Reader.prototype.skipType = function(wireType) {
+    if (wireType === 4) { return this; }
+    if (wireType === 6) { this.pos += 8; return this; }
+    if (wireType === 7) { this.pos += 4; return this; }
+    return orig.call(this, wireType);
+  };
+}());
+
+// Decompress gzip if magic bytes detected (some servers omit Content-Encoding header).
+async function maybeDecompress(buf) {
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    return new Promise((resolve, reject) =>
+      zlib.gunzip(buf, (err, r) => err ? reject(err) : resolve(r))
+    );
+  }
+  return buf;
+}
+
+// Robust FeedMessage decode — if full decode fails, fall back to per-entity parsing
+// so that one malformed entity (or non-standard extension) doesn't lose all data.
+function robustDecode(root, buf) {
+  const FeedMessage = root.lookupType('FeedMessage');
+  const FeedEntity  = root.lookupType('FeedEntity');
+
+  try {
+    return FeedMessage.decode(new Uint8Array(buf));
+  } catch (firstErr) {
+    console.warn(`  Full decode failed (${firstErr.message}), attempting per-entity fallback…`);
+    const entities = [];
+    const r = protobuf.Reader.create(new Uint8Array(buf));
+    try {
+      while (r.pos < r.len) {
+        const tag = r.uint32();
+        const fn = tag >>> 3, wt = tag & 7;
+        if (fn === 2 && wt === 2) {
+          // FeedEntity (field 2, length-delimited)
+          const len = r.uint32();
+          if (r.pos + len > r.len) break;
+          const entitySlice = buf.slice(r.pos, r.pos + len);
+          try { entities.push(FeedEntity.decode(new Uint8Array(entitySlice))); } catch (_) {}
+          r.pos += len;
+        } else if (wt <= 5) {
+          r.skipType(wt);  // skip header / unknown fields
+        } else {
+          break;  // truly unknown wire type in outer message — stop
+        }
+      }
+    } catch (_) { /* stop on any outer read error */ }
+    console.warn(`  Per-entity fallback recovered ${entities.length} entities`);
+    return { entity: entities };
+  }
+}
+
+// SE: per-operator URLs (GTFS Sweden 3 Realtime)
+// No national endpoint exists — must query each operator separately.
+const SE_OPERATORS = ['ul', 'otraf', 'klt', 'skane', 'varm', 'dt', 'xt', 'vastmanland'];
+
+// Feed definitions — free/open feeds first.
+// FR and CH removed: PRIM does not offer GTFS-RT vehicle positions;
+// opentransportdata.swiss vehicle positions endpoint does not exist.
 const FEEDS = [
   {
     code: 'NO',
@@ -91,60 +156,64 @@ const FEEDS = [
     code: 'NL',
     url: 'https://gtfs.ovapi.nl/nl/vehiclePositions.pb',
     headers: {},
+    robustDecode: true,  // OV-API uses non-standard extension wire types
   },
-  // DE: DELFI free-tier only carries trip_updates; use VBB (Berlin/Brandenburg) for vehicle positions
   {
     code: 'DE',
-    url: 'https://realtime.vbb.de/gtfs-rt/v2/vehicle-positions',
-    headers: { 'accept': 'application/x-google-protobuf' },
+    // VBB Berlin/Brandenburg — publicly accessible combined GTFS-RT feed
+    url: 'https://production.gtfsrt.vbb.de/data',
+    headers: {},
   },
   {
     code: 'SE',
-    url: `https://openapi.samtrafiken.se/gtfs-rt-sweden/vehiclepositions.pb?key=${process.env.SE_API_KEY||''}`,
-    headers: { 'accept': 'application/x-google-protobuf' },
+    // opendata.samtrafiken.se (not openapi) — per-operator, requires Accept-Encoding
+    operators: SE_OPERATORS,
+    urlTemplate: `https://opendata.samtrafiken.se/gtfs-rt-sweden/{op}/VehiclePositionsSweden.pb`,
+    headers: { 'Accept-Encoding': 'gzip, deflate' },
     requiresKey: 'SE_API_KEY',
-  },
-  // FR: PRIM v2 endpoint (moved from /marketplace/gtfs-rt/ in 2024)
-  {
-    code: 'FR',
-    url: 'https://prim.iledefrance-mobilites.fr/marketplace/v2/gtfs-realtime/VehiclePosition',
-    headers: { 'apikey': process.env.FR_API_KEY||'' },
-    requiresKey: 'FR_API_KEY',
-  },
-  // CH: opentransportdata.swiss vehicle positions endpoint
-  {
-    code: 'CH',
-    url: 'https://api.opentransportdata.swiss/gtfs-rt-fahrzeugpositionen/v1',
-    headers: {
-      'Authorization': `Bearer ${process.env.CH_API_KEY||''}`,
-      'accept': 'application/x-google-protobuf',
-    },
-    requiresKey: 'CH_API_KEY',
   },
 ];
 
-// Decompress gzip if magic bytes detected (some servers omit Content-Encoding header)
-async function maybeDecompress(buf) {
-  if (buf[0] === 0x1f && buf[1] === 0x8b) {
-    return new Promise((resolve, reject) =>
-      zlib.gunzip(buf, (err, result) => err ? reject(err) : resolve(result))
-    );
+async function fetchAndDecode(url, headers, root, useRobust) {
+  const res = await fetch(url, { headers, timeout: 20000 });
+  if (!res.ok) {
+    console.warn(`  HTTP ${res.status} from ${url.split('?')[0]}`);
+    return null;
   }
-  return buf;
+  const rawBuf = await res.buffer();
+  const buf = await maybeDecompress(rawBuf);
+  console.log(`  ${rawBuf.length} bytes raw → ${buf.length} bytes decoded`);
+  return useRobust ? robustDecode(root, buf)
+                   : root.lookupType('FeedMessage').decode(new Uint8Array(buf));
 }
 
-// Patch protobufjs Reader to skip unknown wire types (6,7) and stray end-group (4)
-// instead of throwing — some feeds use proprietary proto2 extensions
-(function patchReader() {
-  const Reader = protobuf.Reader;
-  const orig = Reader.prototype.skipType;
-  Reader.prototype.skipType = function(wireType) {
-    if (wireType === 4) { return this; }          // stray end-group — skip gracefully
-    if (wireType === 6) { this.pos += 8; return this; }  // treat as fixed64
-    if (wireType === 7) { this.pos += 4; return this; }  // treat as fixed32
-    return orig.call(this, wireType);
-  };
-}());
+function extractVehicles(msg, countryCode) {
+  const vehicles = [];
+  for (const entity of (msg.entity || [])) {
+    try {
+      const vp = entity.vehicle;
+      if (!vp || !vp.position) continue;
+      const p = vp.position;
+      if (p.latitude == null || p.longitude == null) continue;
+      if (Math.abs(p.latitude) > 90 || Math.abs(p.longitude) > 180) continue;
+      if (p.latitude === 0 && p.longitude === 0) continue;
+      vehicles.push({
+        id: `${countryCode}-${vp.vehicle?.id || vp.vehicleId || entity.id}`,
+        lat: p.latitude,
+        lng: p.longitude,
+        bearing: Math.round(p.bearing || 0),
+        speed: Math.round((p.speed || 0) * 3.6),  // m/s → km/h
+        line: vp.trip?.route_id || vp.trip?.routeId || '—',
+        tripId: vp.trip?.trip_id || vp.trip?.tripId || '—',
+        dest: '—',
+        routeType: 3,
+        label: vp.vehicle?.label || vp.vehicle?.id || entity.id,
+        operator: countryCode,
+      });
+    } catch (_) { /* skip malformed entity */ }
+  }
+  return vehicles;
+}
 
 async function decodeFeed(feed) {
   if (feed.requiresKey && !process.env[feed.requiresKey]) {
@@ -152,57 +221,48 @@ async function decodeFeed(feed) {
     return null;
   }
 
+  const root = protobuf.parse(PROTO_SCHEMA, { keepCase: true }).root;
+
   try {
-    console.log(`[${feed.code}] Fetching ${feed.url.split('?')[0]}…`);
-    const res = await fetch(feed.url, { headers: feed.headers, timeout: 20000 });
-    if (!res.ok) {
-      console.warn(`[${feed.code}] HTTP ${res.status}`);
-      return null;
-    }
-    const rawBuf = await res.buffer();
-    const buf = await maybeDecompress(rawBuf);
-    console.log(`[${feed.code}] ${rawBuf.length} bytes raw → ${buf.length} bytes decoded`);
-
-    const root = protobuf.parse(PROTO_SCHEMA, { keepCase: true }).root;
-    const FeedMessage = root.lookupType('FeedMessage');
-
-    let msg;
-    try {
-      msg = FeedMessage.decode(new Uint8Array(buf));
-    } catch (e) {
-      const hex = Array.from(buf.slice(0, 32)).map(b => b.toString(16).padStart(2,'0')).join(' ');
-      const txt = buf.slice(0, 64).toString('utf8').replace(/[^\x20-\x7e]/g, '.');
-      console.warn(`[${feed.code}] Decode error: ${e.message}`);
-      console.warn(`[${feed.code}] First 32 bytes hex: ${hex}`);
-      console.warn(`[${feed.code}] First 64 bytes txt: ${txt}`);
-      return null;
-    }
-
-    const vehicles = [];
-    for (const entity of (msg.entity || [])) {
+    if (feed.operators) {
+      // SE: fetch all operators in parallel, merge
+      const key = process.env[feed.requiresKey] || '';
+      console.log(`[${feed.code}] Fetching ${feed.operators.length} operator feeds in parallel…`);
+      const results = await Promise.all(
+        feed.operators.map(async op => {
+          const url = feed.urlTemplate.replace('{op}', op) + `?key=${key}`;
+          try {
+            const msg = await fetchAndDecode(url, feed.headers, root, false);
+            if (!msg) return [];
+            const veh = extractVehicles(msg, feed.code);
+            console.log(`  ${op}: ${veh.length} vehicles`);
+            return veh;
+          } catch (e) {
+            console.warn(`  ${op}: ${e.message}`);
+            return [];
+          }
+        })
+      );
+      const vehicles = results.flat();
+      console.log(`[${feed.code}] Total: ${vehicles.length} vehicles`);
+      return { updated: Math.floor(Date.now() / 1000), count: vehicles.length, vehicles };
+    } else {
+      // Single URL feed
+      console.log(`[${feed.code}] Fetching ${feed.url.split('?')[0]}…`);
+      let msg;
       try {
-        const vp = entity.vehicle;
-        if (!vp || !vp.position) continue;
-        const p = vp.position;
-        if (p.latitude == null || p.longitude == null) continue;
-        vehicles.push({
-          id: `${feed.code}-${vp.vehicle?.id || vp.vehicleId || entity.id}`,
-          lat: p.latitude,
-          lng: p.longitude,
-          bearing: Math.round(p.bearing || 0),
-          speed: Math.round((p.speed || 0) * 3.6),  // m/s → km/h
-          line: vp.trip?.route_id || vp.trip?.routeId || '—',
-          tripId: vp.trip?.trip_id || vp.trip?.tripId || '—',
-          dest: '—',
-          routeType: 3,
-          label: vp.vehicle?.label || vp.vehicle?.id || entity.id,
-          operator: feed.code,
-        });
-      } catch (e) { /* skip malformed entity */ }
+        msg = await fetchAndDecode(feed.url, feed.headers, root, feed.robustDecode);
+      } catch (e) {
+        const hexDump = typeof e._buf !== 'undefined'
+          ? '' : '';
+        console.warn(`[${feed.code}] Decode error: ${e.message}`);
+        return null;
+      }
+      if (!msg) return null;
+      const vehicles = extractVehicles(msg, feed.code);
+      console.log(`[${feed.code}] ${vehicles.length} vehicles`);
+      return { updated: Math.floor(Date.now() / 1000), count: vehicles.length, vehicles };
     }
-
-    console.log(`[${feed.code}] ${vehicles.length} vehicles`);
-    return { updated: Math.floor(Date.now() / 1000), count: vehicles.length, vehicles };
   } catch (e) {
     console.error(`[${feed.code}] Fatal: ${e.message}`);
     return null;
