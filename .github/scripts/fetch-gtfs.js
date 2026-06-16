@@ -174,14 +174,10 @@ const FEEDS = [
     headers: {},
     robustDecode: true,  // OV-API uses non-standard extension wire types
   },
-  {
-    code: 'DE',
-    // VBB Berlin/Brandenburg — publicly accessible combined GTFS-RT feed
-    url: 'https://production.gtfsrt.vbb.de/data',
-    headers: {},
-    robustDecode: true,
-    logFirstBytes: true,  // print hex on decode failure for diagnosis
-  },
+  // DE: No free vehicle positions feed available in Germany.
+  // VBB Berlin/Brandenburg feed (production.gtfsrt.vbb.de/data) is trip_updates only.
+  // DELFI national feed (realtime.gtfs.de) is trip_updates/alerts only.
+  // Frontend falls back to CORS proxy for DE.
   {
     code: 'SE',
     // opendata.samtrafiken.se (not openapi) — per-operator, requires Accept-Encoding
@@ -271,8 +267,6 @@ async function decodeFeed(feed) {
       try {
         msg = await fetchAndDecode(feed.url, feed.headers, root, feed.robustDecode);
       } catch (e) {
-        const hexDump = typeof e._buf !== 'undefined'
-          ? '' : '';
         console.warn(`[${feed.code}] Decode error: ${e.message}`);
         return null;
       }
